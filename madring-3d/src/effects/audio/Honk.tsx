@@ -5,6 +5,8 @@ import type { PositionalAudio as PositionalAudioImpl } from 'three'
 
 import { useStore } from '../../store'
 
+import { asset } from '../../assets'
+
 export const HonkAudio = () => {
   const ref = useRef<PositionalAudioImpl>(null)
   const [honk, sound] = useStore(({ controls: { honk }, sound }) => [honk, sound])
@@ -19,5 +21,5 @@ export const HonkAudio = () => {
     }
   }, [honk, sound])
 
-  return <PositionalAudio ref={ref} url="/sounds/honk.mp3" distance={10} />
+  return <PositionalAudio ref={ref} url={asset('sounds/honk.mp3')} distance={10} />
 }

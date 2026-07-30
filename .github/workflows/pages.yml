@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [claude/madring-f1-game-audit-byyi9c]
+  workflow_dispatch:
+
+# Allow the workflow to publish Pages, but nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; let a run in progress finish rather than cancelling
+# it, so a half-published site is never left behind.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # `enablement: true` turns Pages on for the repository if it is not
+      # already, so this does not need a manual visit to repo settings first.
+      - uses: actions/configure-pages@v5
+        id: pages
+        with:
+          enablement: true
+
+      - name: Install (2D)
+        run: npm ci
+
+      - name: Install (3D)
+        working-directory: madring-3d
+        run: npm ci
+
+      - name: Build both modes
+        run: bash scripts/build-pages.sh "${{ steps.pages.outputs.base_path }}/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

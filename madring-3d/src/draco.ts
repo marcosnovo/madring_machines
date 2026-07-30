@@ -4,4 +4,6 @@
  * so the game loads with no third-party network requests at all. The files are
  * copied from the `three` package (Apache-2.0, Google); see ../NOTICE.
  */
-export const DRACO_PATH = '/draco/'
+import { asset } from './assets'
+
+export const DRACO_PATH = asset('draco/')

@@ -6,6 +6,8 @@ import type { PositionalAudio as PositionalAudioImpl } from 'three'
 
 import { mutation, useStore } from '../../store'
 
+import { asset } from '../../assets'
+
 export const BrakeAudio = () => {
   const ref = useRef<PositionalAudioImpl>(null)
   const [brake, sound] = useStore(({ controls: { brake }, sound }) => [brake, sound])
@@ -25,5 +27,5 @@ export const BrakeAudio = () => {
     }
   }, [brake, sound])
 
-  return <PositionalAudio ref={ref} url="/sounds/tire-brake.mp3" distance={10} />
+  return <PositionalAudio ref={ref} url={asset('sounds/tire-brake.mp3')} distance={10} />
 }

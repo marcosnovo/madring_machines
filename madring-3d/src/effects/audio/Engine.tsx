@@ -8,6 +8,8 @@ import type { PositionalAudio as PositionalAudioImpl } from 'three'
 import { mutation, useStore } from '../../store'
 import { clampDelta } from '../../frame'
 
+import { asset } from '../../assets'
+
 const { lerp } = MathUtils
 
 export const EngineAudio = () => {
@@ -32,5 +34,5 @@ export const EngineAudio = () => {
     }
   }, [])
 
-  return <PositionalAudio autoplay ref={ref} url="/sounds/engine.mp3" loop distance={5} />
+  return <PositionalAudio autoplay ref={ref} url={asset('sounds/engine.mp3')} loop distance={5} />
 }

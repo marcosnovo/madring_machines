@@ -7,8 +7,10 @@ import App from './App'
 import { getState, mutation } from './store'
 import { getLayout } from './circuit/layout'
 
-useGLTF.preload('/models/chassis-draco.glb', DRACO_PATH)
-useGLTF.preload('/models/wheel-draco.glb', DRACO_PATH)
+import { asset } from './assets'
+
+useGLTF.preload(asset('models/chassis-draco.glb'), DRACO_PATH)
+useGLTF.preload(asset('models/wheel-draco.glb'), DRACO_PATH)
 
 createRoot(document.getElementById('root')!).render(<App />)
 

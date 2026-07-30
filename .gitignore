@@ -1,3 +1,5 @@
 node_modules/
 .DS_Store
 Archive.zip
+_site/
+madring-3d/dist/

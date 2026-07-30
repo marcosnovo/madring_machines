@@ -8,6 +8,8 @@ import type { PositionalAudio as PositionalAudioImpl } from 'three'
 import { mutation, useStore } from '../../store'
 import { clampDelta } from '../../frame'
 
+import { asset } from '../../assets'
+
 const { lerp } = MathUtils
 
 export const AccelerateAudio = () => {
@@ -32,5 +34,5 @@ export const AccelerateAudio = () => {
     }
   }, [])
 
-  return <PositionalAudio ref={ref} url="/sounds/accelerate.mp3" loop distance={5} />
+  return <PositionalAudio ref={ref} url={asset('sounds/accelerate.mp3')} loop distance={5} />
 }
