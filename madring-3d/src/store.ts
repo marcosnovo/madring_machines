@@ -7,16 +7,13 @@ import type { Group } from 'three'
 import type { GetState, SetState, StateSelector } from 'zustand'
 
 import { keys } from './keys'
-import { getLayout } from './circuit/layout'
+import { getLayout, nearestIndex, poseAt } from './circuit/layout'
 
-export const angularVelocity = [0, 0.5, 0] as const
 export const cameras = ['DEFAULT', 'FIRST_PERSON', 'BIRD_EYE'] as const
 
 export const dpr = 1.5 as const
 export const levelLayer = 1 as const
 export const maxBoost = 100 as const
-//export const position = [-110, 0.75, 220] as const
-export const rotation = [0, Math.PI / 2 + 0.35, 0] as const
 
 export const vehicleConfig = {
   width: 1.7,
@@ -193,13 +190,27 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
     onStart: () => {
       set({ finished: 0, start: Date.now(), _start: Date.now() })
     },
+    /**
+     * Put the car back on the circuit: upright, on the centreline nearest to
+     * wherever it ended up, pointing the right way down the road. Upstream only
+     * reset the rotation and velocity, which on a 5 km circuit just left you
+     * stranded (or falling) wherever you went off.
+     */
     reset: () => {
       mutation.boost = maxBoost
 
       set((state) => {
-        state.api?.angularVelocity.set(...angularVelocity)
-        state.api?.rotation.set(...rotation)
+        const layout = getLayout()
+        const body = state.chassisBody.current
+        const index = body
+          ? nearestIndex(layout, body.matrixWorld.elements[12], body.matrixWorld.elements[14])
+          : layout.gridIndex
+        const { position, rotation } = poseAt(layout, index)
+
         state.api?.velocity.set(0, 0, 0)
+        state.api?.angularVelocity.set(0, 0, 0)
+        state.api?.position.set(...position)
+        state.api?.rotation.set(...rotation)
 
         return { ...state }
       })

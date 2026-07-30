@@ -8,7 +8,7 @@ import { Environment, OrbitControls, PerspectiveCamera, Sky } from '@react-three
 import { getLayout } from './circuit/layout'
 import { HideMouse, Keyboard } from './controls'
 import { Cameras } from './effects'
-import { BoundingBox, Circuit, CircuitPhysics, LapTiming, Vehicle } from './models'
+import { Circuit, CircuitPhysics, Ground, Killzone, LapTiming, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
 import { Clock, Editor, Help, Intro, Minimap, PickColor, Speed } from './ui'
 import { useToggle } from './useToggle'
@@ -54,8 +54,9 @@ function App(): JSX.Element {
               <Cameras />
             </Vehicle>
             <CircuitPhysics />
+            <Ground />
             <LapTiming />
-            <BoundingBox {...{ depth: 2400, height: 400, position: [0, 160, 0], width: 1600 }} />
+            <Killzone y={-60} />
           </ToggledDebug>
         </Physics>
         <Circuit />

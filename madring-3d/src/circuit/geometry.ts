@@ -128,6 +128,9 @@ export function apronGeometry(layout: Layout, side: 1 | -1): BufferGeometry {
   })
 }
 
+/** Height of the barrier that lines the outside of the run-off, metres. */
+export const BARRIER_HEIGHT = 3
+
 /** Visual barrier wall along the outer edge of the run-off. */
 export function wallGeometry(layout: Layout, side: 1 | -1): BufferGeometry {
   const stripeEvery = Math.max(1, Math.round(9 / layout.ds))
@@ -135,8 +138,8 @@ export function wallGeometry(layout: Layout, side: 1 | -1): BufferGeometry {
   return ribbon(layout, {
     section: (s) => [
       { u: edge(s), h: -APRON_DROP - 0.4 },
-      { u: edge(s), h: -APRON_DROP + 1.5 },
-      { u: edge(s) + side * 0.35, h: -APRON_DROP + 1.5 },
+      { u: edge(s), h: -APRON_DROP + BARRIER_HEIGHT },
+      { u: edge(s) + side * 0.35, h: -APRON_DROP + BARRIER_HEIGHT },
     ],
     color: (i) => (Math.floor(i / stripeEvery) % 2 === 0 ? [0.88, 0.88, 0.9] : [0.13, 0.28, 0.6]),
   })
@@ -195,11 +198,11 @@ export function barriers(layout: Layout, sectors = 24): Barrier[][] {
     const yaw = Math.atan2(-s.t.x, -s.t.z)
     for (const side of [-1, 1] as const) {
       const offset = side * (s.halfWidth + 1 + APRON_WIDTH + 0.6)
-      const p = pointAt(s, offset, -APRON_DROP + 0.7)
+      const p = pointAt(s, offset, -APRON_DROP + BARRIER_HEIGHT / 2)
       groups[sector].push({
         position: [p.x, p.y, p.z],
         rotation: [0, yaw, 0],
-        args: [0.5, 1.6, length],
+        args: [0.6, BARRIER_HEIGHT, length],
       })
     }
   }

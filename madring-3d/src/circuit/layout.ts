@@ -95,6 +95,8 @@ export interface Section {
   length: number
 }
 
+export type Pose = { position: [number, number, number]; rotation: [number, number, number] }
+
 export interface Layout {
   samples: Sample[]
   /** Lap length of the generated curve, metres. */
@@ -108,7 +110,9 @@ export interface Layout {
   /** The straight that carries the start/finish line. */
   mainStraight: Section
   /** Where the car is placed, a little before the line. */
-  grid: { position: [number, number, number]; rotation: [number, number, number] }
+  grid: Pose
+  /** Sample index of the grid slot. */
+  gridIndex: number
   /** Sample index of the start/finish line (arc length 0). */
   startIndex: number
 }
@@ -119,6 +123,33 @@ export function pointAt(sample: Sample, u: number, h: number, target = new Vecto
     .copy(sample.p)
     .addScaledVector(sample.r, u)
     .addScaledVector(sample.u, h)
+}
+
+/** Yaw that points the car's nose up the road at this sample. */
+export function yawAt(sample: Sample): number {
+  return Math.atan2(sample.t.x, sample.t.z)
+}
+
+/** Index of the sample whose centreline is closest to a world point. */
+export function nearestIndex(layout: Pick<Layout, 'samples'>, x: number, z: number): number {
+  let best = 0
+  let bestDistance = Infinity
+  for (let i = 0; i < layout.samples.length; i++) {
+    const p = layout.samples[i].p
+    const d = (p.x - x) ** 2 + (p.z - z) ** 2
+    if (d < bestDistance) {
+      bestDistance = d
+      best = i
+    }
+  }
+  return best
+}
+
+/** A drivable pose on the centreline: hovering slightly, facing forward. */
+export function poseAt(layout: Pick<Layout, 'samples'>, index: number, ride = 1.2): Pose {
+  const sample = layout.samples[index]
+  const p = pointAt(sample, 0, ride)
+  return { position: [p.x, p.y, p.z], rotation: [0, yawAt(sample), 0] }
 }
 
 /** Wrapped arc-length difference in [-lap/2, lap/2]. */
@@ -296,11 +327,6 @@ function build(): Layout {
   // --- grid slot -----------------------------------------------------------
   // A few car lengths before the line, on the racing line, facing forward.
   const gridIndex = wrap(-Math.round(25 / ds), SAMPLES)
-  const g = samples[gridIndex]
-  const gp = pointAt(g, 0, 1.2)
-  // cannon's RaycastVehicle drives along the chassis' local +Z (r3f-cannon
-  // defaults indexForwardAxis = 2), so yaw = atan2(Tx, Tz) faces it up the road.
-  const yaw = Math.atan2(g.t.x, g.t.z)
 
   return {
     samples,
@@ -310,7 +336,8 @@ function build(): Layout {
     tunnels,
     mainStraight,
     startIndex: 0,
-    grid: { position: [gp.x, gp.y, gp.z], rotation: [0, yaw, 0] },
+    gridIndex,
+    grid: poseAt({ samples }, gridIndex),
   }
 }
 

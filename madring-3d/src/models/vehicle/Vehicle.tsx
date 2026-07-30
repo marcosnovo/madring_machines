@@ -10,6 +10,7 @@ import { getState, mutation, useStore } from '../../store'
 import { useToggle } from '../../useToggle'
 import { Chassis } from './Chassis'
 import { Wheel } from './Wheel'
+import { clampDelta } from '../../frame'
 
 const { lerp } = MathUtils
 const v = new Vector3()
@@ -53,8 +54,11 @@ export function Vehicle(props: any) {
   let swaySpeed = 0
   let swayTarget = 0
   let swayValue = 0
+  let swivel = 0
 
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
+    const delta = clampDelta(rawDelta)
+
     camera = getState().camera
     editor = getState().editor
     controls = getState().controls
@@ -88,19 +92,16 @@ export function Vehicle(props: any) {
       defaultCamera.position.lerp(v, delta)
 
       // ctrl.left-ctrl.right swivel
-      defaultCamera.rotation.z = lerp(
-        defaultCamera.rotation.z,
-        (camera !== 'BIRD_EYE' ? 0 : Math.PI) + (-steeringValue * speed) / (camera === 'DEFAULT' ? 40 : 60),
-        delta,
-      )
+      swivel = lerp(swivel, (camera !== 'BIRD_EYE' ? 0 : Math.PI) + (-steeringValue * speed) / (camera === 'DEFAULT' ? 40 : 60), delta)
     }
 
-    // Camera sway
+    // Camera sway. Assigned, not accumulated: `+=` random-walks the camera's
+    // pitch away from level whenever the frame rate is uneven.
     swaySpeed = isBoosting ? 60 : 30
     swayTarget = isBoosting ? (speed / maxSpeed) * 8 : (speed / maxSpeed) * 2
     swayValue = isBoosting ? (speed / maxSpeed + 0.25) * 30 : MathUtils.lerp(swayValue, swayTarget, delta * (isBoosting ? 10 : 20))
-    defaultCamera.rotation.z += (Math.sin(state.clock.elapsedTime * swaySpeed * 0.9) / 1000) * swayValue
-    defaultCamera.rotation.x += (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * swayValue
+    defaultCamera.rotation.z = swivel + (Math.sin(state.clock.elapsedTime * swaySpeed * 0.9) / 1000) * swayValue
+    defaultCamera.rotation.x = (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * swayValue
 
     if (chassisBody.current) {
       // lean chassis

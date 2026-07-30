@@ -13,6 +13,7 @@ import type { GLTF } from 'three-stdlib'
 import type { Camera, Controls } from '../../store'
 import { getState, mutation, setState, useStore } from '../../store'
 import { DRACO_PATH } from '../../draco'
+import { clampDelta } from '../../frame'
 
 const { lerp } = MathUtils
 
@@ -104,7 +105,8 @@ export const Chassis = forwardRef<Group, PropsWithChildren<BoxProps>>(({ args = 
 
   let camera: Camera
   let controls: Controls
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = clampDelta(rawDelta)
     camera = getState().camera
     controls = getState().controls
     brake.current.material.color.lerp(c.set(controls.brake ? '#555' : 'white'), delta * 10)

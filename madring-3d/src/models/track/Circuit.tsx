@@ -35,7 +35,7 @@ function useCheckerTexture(): CanvasTexture {
     ctx.fillRect(size / 2, size / 2, size / 2, size / 2)
     const texture = new CanvasTexture(canvas)
     texture.wrapS = texture.wrapT = RepeatWrapping
-    texture.repeat.set(22, 2)
+    texture.repeat.set(30, 3)
     texture.magFilter = texture.minFilter = NearestFilter
     return texture
   }, [])
@@ -84,7 +84,7 @@ export function Circuit(): JSX.Element {
       kerbRight: kerbGeometry(layout, 1),
       apronLeft: apronGeometry(layout, -1),
       apronRight: apronGeometry(layout, 1),
-      startLine: bandGeometry(layout, layout.startIndex, 1.6),
+      startLine: bandGeometry(layout, layout.startIndex, 2.6),
       wallLeft: wallGeometry(layout, -1),
       wallRight: wallGeometry(layout, 1),
       tunnels: layout.tunnels.map((section) => tunnelGeometry(layout, section)),
@@ -120,7 +120,7 @@ export function Circuit(): JSX.Element {
           <meshStandardMaterial vertexColors roughness={0.7} side={DoubleSide} />
         </mesh>
         <mesh geometry={geometries.startLine}>
-          <meshStandardMaterial map={checker} roughness={0.7} polygonOffset polygonOffsetFactor={-2} />
+          <meshStandardMaterial map={checker} roughness={0.7} polygonOffset polygonOffsetFactor={-4} depthWrite={false} />
         </mesh>
       </group>
       {geometries.tunnels.map((geometry, i) => (

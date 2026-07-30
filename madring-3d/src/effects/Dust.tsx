@@ -5,6 +5,7 @@ import type { InstancedMesh } from 'three'
 
 import { getState, mutation, useStore } from '../store'
 import type { Controls } from '../store'
+import { clampDelta } from '../frame'
 
 const v = new Vector3()
 const m = new Matrix4()
@@ -26,7 +27,8 @@ export function Dust({ count = 200, opacity = 0.1, size = 1 }: DustProps): JSX.E
   let index = 0
   let intensity = 0
   let time = 0
-  useFrame((state, delta) => {
+  useFrame((state, rawDelta) => {
+    const delta = clampDelta(rawDelta)
     if (!ref.current) return
     brake = getState().controls.brake
     intensity = MathUtils.lerp(intensity, (Number(mutation.sliding || brake) * mutation.speed) / 40, delta * 8)

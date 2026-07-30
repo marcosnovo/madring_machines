@@ -6,6 +6,7 @@ import { MathUtils } from 'three'
 import type { PositionalAudio as PositionalAudioImpl } from 'three'
 
 import { mutation, useStore } from '../../store'
+import { clampDelta } from '../../frame'
 
 const { lerp } = MathUtils
 
@@ -15,7 +16,8 @@ export const EngineAudio = () => {
 
   const getVolume = () => 1 - mutation.speed / maxSpeed
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
+    const delta = clampDelta(rawDelta)
     ref.current?.setVolume(getVolume())
     ref.current?.setPlaybackRate(lerp(ref.current.playbackRate, mutation.rpmTarget + 1, delta * 10))
   })
