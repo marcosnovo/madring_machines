@@ -1,0 +1,61 @@
+{
+  "name": "madring-3d",
+  "version": "0.1.0",
+  "description": "3D circuit racing mode — a derivative of @pmndrs/racing-game / colyseus/react-racing-game",
+  "keywords": [
+    "physics",
+    "cannon-es",
+    "vehicle",
+    "use-cannon"
+  ],
+  "main": "src/main.jsx",
+  "dependencies": {
+    "@pmndrs/branding": "^0.0.8",
+    "@react-three/cannon": "^6.3.0",
+    "@react-three/drei": "^9.4.4",
+    "@react-three/fiber": "^8.0.12",
+    "inter-ui": "^3.19.3",
+    "leva": "^0.9.21",
+    "lodash-es": "^4.17.21",
+    "react": "^18.0.0",
+    "react-colorful": "^5.5.1",
+    "react-dom": "^18.0.0",
+    "three": "^0.139.0",
+    "use-asset": "^1.0.4",
+    "zustand": "^3.7.0"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.6",
+    "@types/react": "^18.0.5",
+    "@types/react-dom": "^18.0.1",
+    "@types/three": "^0.139.0",
+    "@typescript-eslint/eslint-plugin": "^5.19.0",
+    "@typescript-eslint/parser": "^5.19.0",
+    "@vitejs/plugin-react-refresh": "^1.3.6",
+    "eslint": "^8.13.0",
+    "eslint-config-prettier": "^8.4.0",
+    "eslint-plugin-react": "^7.28.0",
+    "prettier": "^2.5.1",
+    "react-error-overlay": "^6.0.9",
+    "three-stdlib": "^2.9.1",
+    "typescript": "^4.5.5",
+    "vite": "^2.8.4",
+    "vite-react-jsx": "^1.1.2"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "serve": "vite preview",
+    "eslint": "eslint --cache src",
+    "eslint-fix": "eslint --fix --cache src",
+    "prettier": "prettier --list-different '**/*.{js,jsx,md,ts,tsx}'",
+    "prettier-fix": "prettier --write '**/*.{js,jsx,md,ts,tsx}'"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not ie <= 11",
+    "not op_mini all"
+  ],
+  "license": "MIT"
+}

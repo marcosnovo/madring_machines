@@ -37,30 +37,33 @@ const CAR_SPRITES = ['car_oso', 'car_gata', 'car_cibeles', 'car_madrono'];
 const TKEYS = ['player', 'ai1', 'ai2', 'ai3'];
 const PRIZES = [100000, 90000, 80000, 70000];
 
-const TRACK_MUSIC = [
-    'music/mfcc-racing-speed-action-music-115041.mp3',                                           // 0  SIDEWINDER
-    'music/mfcc-speed-speed-racing-cycling-music-257904.mp3',                                    // 1  FANDANGO
-    'music/mfcc-asian-background-music-1-min-25-sec-371823.mp3',                                 // 2  WIPEOUT
-    'music/mfcc-speed-action-racing-music-120442.mp3',                                           // 3  BLASTER
-    'music/mfcc-african-background-music-372732.mp3',                                            // 4  HUEVOS GRANDE
-    'music/mfcc-sports-football-soccer-music-414731.mp3',                                        // 5  CLIFFHANGER
-    'music/mfcc-speed-racing-action-music-115039.mp3',                                           // 6  BIG DUKES
-    'music/mfcc-halloween-background-music-428574.mp3',                                          // 7  HURRICANE GULCH
-    'music/mfcc-african-background-music-372732 (1).mp3',                                        // 8  SAFARI RUSH
-    'music/mfcc-arabic-islamic-middle-east-music-372733.mp3',                                    // 9  DESERT MIRAGE
-    'music/mfcc-brazil-music-festival-football-rio-brazilian-background-274292.mp3',             // 10 COPACABANA CRUNCH
-    'music/mfcc-country-country-texas-cowboy-music-322875.mp3',                                  // 11 LONE STAR RALLY
-    'music/mfcc-happy-christmas-music-winter-holidays-celebration-background-theme-269352.mp3',  // 12 JINGLE RALLY
-    'music/mfcc-indian-bollywood-diwali-music-306679.mp3',                                       // 13 CURRY CORNER
-    'music/mfcc-italian-italy-tarantella-music-321645.mp3',                                      // 14 BELLA STRADA
-    'music/mfcc-jazz-music-casino-poker-roulette-las-vegas-background-intro-theme-287498.mp3',   // 15 LOOSE SLOPS
-    'music/mfcc-medieval-irish-celtic-ireland-music-318197.mp3',                                 // 16 SHAMROCK SPRINT
-    'music/mfcc-mexican-mexican-mexico-mariachi-music-290633.mp3',                               // 17 EL GRANDE LOOP
-    'music/mfcc-reggae-reggaeton-jamaican-music-326054.mp3',                                     // 18 IRIE CIRCUIT
-    'music/mfcc-spanish-spanish-spain-music-373166.mp3',                                         // 19 OLÉ DASH
-    'music/mfcc-wildlife-jungle-forest-background-music-263783.mp3',                             // 20 JUNGLE JAMBOREE
-    'music/mfcc-speed-action-racing-music-120442.mp3',                                           // 21 NEON DRIVE (synthwave reuse)
-];
+// Music library. Each track picks its own file through its `music:` property —
+// nothing is keyed off a track's position in TRACKS, so tracks can be inserted
+// or reordered without the soundtrack sliding out of step. Several tracks share
+// a file where the mood fits.
+const MUSIC = {
+    racingSpeed:  'music/mfcc-racing-speed-action-music-115041.mp3',
+    speedCycling: 'music/mfcc-speed-speed-racing-cycling-music-257904.mp3',
+    speedAction:  'music/mfcc-speed-action-racing-music-120442.mp3',
+    speedRacing:  'music/mfcc-speed-racing-action-music-115039.mp3',
+    asian:        'music/mfcc-asian-background-music-1-min-25-sec-371823.mp3',
+    african:      'music/mfcc-african-background-music-372732.mp3',
+    african2:     'music/mfcc-african-background-music-372732 (1).mp3',
+    soccer:       'music/mfcc-sports-football-soccer-music-414731.mp3',
+    halloween:    'music/mfcc-halloween-background-music-428574.mp3',
+    arabic:       'music/mfcc-arabic-islamic-middle-east-music-372733.mp3',
+    brazil:       'music/mfcc-brazil-music-festival-football-rio-brazilian-background-274292.mp3',
+    country:      'music/mfcc-country-country-texas-cowboy-music-322875.mp3',
+    christmas:    'music/mfcc-happy-christmas-music-winter-holidays-celebration-background-theme-269352.mp3',
+    indian:       'music/mfcc-indian-bollywood-diwali-music-306679.mp3',
+    italian:      'music/mfcc-italian-italy-tarantella-music-321645.mp3',
+    casino:       'music/mfcc-jazz-music-casino-poker-roulette-las-vegas-background-intro-theme-287498.mp3',
+    irish:        'music/mfcc-medieval-irish-celtic-ireland-music-318197.mp3',
+    mexican:      'music/mfcc-mexican-mexican-mexico-mariachi-music-290633.mp3',
+    reggae:       'music/mfcc-reggae-reggaeton-jamaican-music-326054.mp3',
+    spanish:      'music/mfcc-spanish-spanish-spain-music-373166.mp3',
+    jungle:       'music/mfcc-wildlife-jungle-forest-background-music-263783.mp3',
+};
 
 // Synthwave track is larger than screen — world dimensions
 const SW_W = 2048;
@@ -91,7 +94,57 @@ const UPGRADES = [
 // ── TRACK DATA ──────────────────────────────────────────────
 const TRACKS = [
     {
+        // ── MADRING — the IFEMA-Valdebebas street course, Madrid ──
+        // The control points below are REAL SURVEY DATA, not level design:
+        // generated by scripts/madring-centreline.js from the published circuit
+        // centreline (bacinger/f1-circuits, MIT), projected to a metric plane
+        // and resampled. They are inlined because game.js is bundled standalone.
+        // Do not hand-tune the shape — the layout is only faithful as long as it
+        // is left alone, and the scale is what keeps the tightest pinch (58.6 m,
+        // where the two legs run side by side) wider than the road.
+        //   world 1334 x 2033 px · 1.0244 px/m · lap 5415 m
+        name: 'MADRING', theme: 'madrid',
+        music: MUSIC.spanish,
+        W: 1334, H: 2033,
+        rw: 46,
+        laps: 4,
+        cp: [
+            {x:823,y:1841}, {x:738,y:1856}, {x:652,y:1871}, {x:613,y:1932},
+            {x:527,y:1942}, {x:452,y:1904}, {x:405,y:1831}, {x:359,y:1758},
+            {x:313,y:1685}, {x:266,y:1612}, {x:219,y:1539}, {x:182,y:1460},
+            {x:158,y:1377}, {x:151,y:1291}, {x:160,y:1205}, {x:196,y:1126},
+            {x:199,y:1056}, {x:179,y:972},  {x:137,y:896},  {x:116,y:813},
+            {x:106,y:741},  {x:122,y:667},  {x:91,y:588},   {x:90,y:501},
+            {x:114,y:423},  {x:175,y:363},  {x:158,y:280},  {x:131,y:198},
+            {x:158,y:119},  {x:237,y:90},   {x:314,y:122},  {x:356,y:194},
+            {x:345,y:279},  {x:300,y:352},  {x:246,y:420},  {x:193,y:489},
+            {x:151,y:563},  {x:208,y:623},  {x:277,y:676},  {x:301,y:756},
+            {x:302,y:843},  {x:341,y:918},  {x:416,y:957},  {x:503,y:957},
+            {x:586,y:939},  {x:646,y:977},  {x:691,y:1051}, {x:738,y:1122},
+            {x:821,y:1127}, {x:907,y:1129}, {x:969,y:1184}, {x:986,y:1268},
+            {x:1001,y:1354},{x:1017,y:1439},{x:1061,y:1475},{x:1145,y:1459},
+            {x:1199,y:1502},{x:1221,y:1586},{x:1238,y:1671},{x:1244,y:1755},
+            {x:1165,y:1781},{x:1079,y:1796},{x:994,y:1811}, {x:909,y:1826},
+        ],
+        mud: [],
+        // La Monumental: a 550 m banked semicircle at the north end, taken flat
+        // out. Banking can't be shown geometrically from above, so it is a
+        // terrain type instead — the span below is the sustained right-hand
+        // teardrop measured on the centreline (582 m of it).
+        bankWp: [0.410, 0.514],
+        // Two tunnels join the IFEMA and Valdebebas halves. The geodata is a
+        // centreline only, so THESE POSITIONS ARE OUR APPROXIMATION: the first
+        // runs under the crossing and spits the car out into Curva Norte, the
+        // second takes the return leg back south.
+        tunnels: [{frac: 0.372, len: 26}, {frac: 0.582, len: 24}],
+        // Nitro sits on the two longest straights — the 484 m run down the west
+        // side and the 393 m drag back to the line — not at random.
+        nitroWp: [0.10, 0.15, 0.955],
+    },
+    {
         name: 'SIDEWINDER',
+        music: MUSIC.racingSpeed,
+        groundDecor: 'ants',
         cp: [
             {x:512,y:690},{x:740,y:700},{x:900,y:620},{x:930,y:460},
             {x:880,y:310},{x:730,y:220},{x:560,y:270},{x:420,y:210},
@@ -103,6 +156,8 @@ const TRACKS = [
     },
     {
         name: 'FANDANGO',
+        music: MUSIC.speedCycling,
+        groundDecor: 'spiders',
         cp: [
             {x:350,y:700},{x:620,y:710},{x:850,y:640},{x:920,y:480},
             {x:860,y:320},{x:680,y:240},{x:500,y:320},{x:380,y:240},
@@ -112,7 +167,8 @@ const TRACKS = [
         mud: [{x:500,y:320,r:28}],
     },
     {
-        name: 'WIPEOUT',
+        name: 'WIPEOUT', theme: 'asian',
+        music: MUSIC.asian,
         cp: [
             {x:512,y:700},{x:780,y:680},{x:920,y:540},{x:880,y:360},
             {x:760,y:250},{x:900,y:150},{x:650,y:110},{x:400,y:155},
@@ -123,6 +179,8 @@ const TRACKS = [
     },
     {
         name: 'BLASTER',
+        music: MUSIC.speedAction,
+        groundDecor: 'daisies',
         cp: [
             {x:512,y:700},{x:780,y:690},{x:920,y:580},{x:860,y:420},
             {x:720,y:340},{x:580,y:400},{x:500,y:320},{x:380,y:220},
@@ -134,6 +192,8 @@ const TRACKS = [
     },
     {
         name: 'HUEVOS GRANDE',
+        music: MUSIC.african,
+        groundDecor: 'mushrooms',
         cp: [
             {x:512,y:710},{x:750,y:680},{x:920,y:560},{x:920,y:380},
             {x:840,y:230},{x:660,y:155},{x:480,y:200},{x:350,y:150},
@@ -144,7 +204,8 @@ const TRACKS = [
         mud: [{x:480,y:200,r:30}],
     },
     {
-        name: 'CLIFFHANGER',
+        name: 'CLIFFHANGER', theme: 'soccer',
+        music: MUSIC.soccer,
         cp: [
             {x:400,y:700},{x:650,y:710},{x:870,y:650},{x:940,y:500},
             {x:900,y:350},{x:760,y:255},{x:600,y:310},{x:500,y:220},
@@ -156,6 +217,8 @@ const TRACKS = [
     },
     {
         name: 'BIG DUKES',
+        music: MUSIC.speedRacing,
+        groundDecor: 'cigarettes',
         cp: [
             {x:512,y:700},{x:720,y:710},{x:900,y:640},{x:940,y:460},
             {x:880,y:300},{x:720,y:200},{x:550,y:155},{x:380,y:200},
@@ -166,7 +229,8 @@ const TRACKS = [
         mud: [{x:380,y:200,r:25},{x:880,y:300,r:22}],
     },
     {
-        name: 'HURRICANE GULCH',
+        name: 'HURRICANE GULCH', theme: 'halloween',
+        music: MUSIC.halloween,
         cp: [
             {x:450,y:700},{x:700,y:700},{x:880,y:620},{x:930,y:460},
             {x:860,y:310},{x:700,y:240},{x:550,y:300},{x:440,y:240},
@@ -178,6 +242,7 @@ const TRACKS = [
     },
     {   // 8 ── SAFARI RUSH — Monaco-inspired: tight hairpins, narrow, many direction changes
         name: 'SAFARI RUSH', theme: 'african',
+        music: MUSIC.african2,
         cp: [
             {x:512,y:678},{x:748,y:660},{x:888,y:540},{x:908,y:375},{x:835,y:242},
             {x:665,y:172},{x:512,y:252},{x:368,y:172},{x:215,y:218},{x:135,y:358},
@@ -188,6 +253,7 @@ const TRACKS = [
     },
     {   // 9 ── DESERT MIRAGE — Bahrain/Abu Dhabi inspired: long straights, sharp hairpins
         name: 'DESERT MIRAGE', theme: 'arabic',
+        music: MUSIC.arabic,
         cp: [
             {x:512,y:685},{x:740,y:678},{x:890,y:598},{x:925,y:445},{x:875,y:295},
             {x:700,y:212},{x:512,y:190},{x:325,y:212},{x:168,y:298},{x:125,y:452},
@@ -198,6 +264,7 @@ const TRACKS = [
     },
     {   // 10 ── COPACABANA CRUNCH — Interlagos inspired: counter-clockwise with S-curves
         name: 'COPACABANA CRUNCH', theme: 'brazil',
+        music: MUSIC.brazil,
         cp: [
             {x:512,y:692},{x:295,y:672},{x:162,y:552},{x:148,y:398},{x:238,y:265},
             {x:408,y:198},{x:578,y:235},{x:698,y:172},{x:875,y:248},{x:918,y:405},
@@ -208,6 +275,7 @@ const TRACKS = [
     },
     {   // 11 ── LONE STAR RALLY — COTA inspired: big sweeping T1, tight S-curves
         name: 'LONE STAR RALLY', theme: 'country',
+        music: MUSIC.country,
         cp: [
             {x:512,y:678},{x:758,y:655},{x:905,y:518},{x:882,y:358},{x:762,y:238},
             {x:592,y:188},{x:448,y:232},{x:342,y:172},{x:228,y:232},{x:155,y:372},
@@ -218,6 +286,7 @@ const TRACKS = [
     },
     {   // 12 ── JINGLE RALLY — Nürburgring inspired: very winding, many direction changes
         name: 'JINGLE RALLY', theme: 'christmas',
+        music: MUSIC.christmas,
         cp: [
             {x:512,y:675},{x:718,y:645},{x:860,y:502},{x:798,y:348},{x:882,y:228},
             {x:762,y:148},{x:608,y:172},{x:478,y:252},{x:348,y:165},{x:205,y:188},
@@ -228,6 +297,7 @@ const TRACKS = [
     },
     {   // 13 ── CURRY CORNER — Indian city circuit with tunnel through building
         name: 'CURRY CORNER', theme: 'indian',
+        music: MUSIC.indian,
         cp: [
             {x:512,y:680},{x:738,y:658},{x:878,y:528},{x:848,y:368},{x:722,y:258},
             {x:598,y:205},{x:448,y:195},{x:302,y:232},{x:195,y:348},{x:175,y:498},
@@ -239,6 +309,7 @@ const TRACKS = [
     },
     {   // 14 ── BELLA STRADA — Monza inspired: fast main straight + tight Ascari chicane
         name: 'BELLA STRADA', theme: 'italian',
+        music: MUSIC.italian,
         cp: [
             {x:512,y:678},{x:775,y:665},{x:912,y:548},{x:882,y:385},{x:735,y:258},
             {x:512,y:228},{x:298,y:258},{x:192,y:348},{x:268,y:442},{x:182,y:542},
@@ -249,6 +320,7 @@ const TRACKS = [
     },
     {   // 15 ── LOOSE SLOPS — Las Vegas inspired: blocky 90° street corners, inner chicane
         name: 'LOOSE SLOPS', theme: 'casino',
+        music: MUSIC.casino,
         cp: [
             {x:512,y:678},{x:765,y:678},{x:918,y:562},{x:918,y:375},{x:808,y:248},
             {x:625,y:232},{x:512,y:328},{x:408,y:232},{x:238,y:248},{x:128,y:375},
@@ -260,6 +332,7 @@ const TRACKS = [
     },
     {   // 16 ── SHAMROCK SPRINT — Irish rolling hills with tunnel through hilltop
         name: 'SHAMROCK SPRINT', theme: 'irish',
+        music: MUSIC.irish,
         cp: [
             {x:512,y:680},{x:732,y:652},{x:872,y:518},{x:898,y:358},{x:802,y:228},
             {x:642,y:158},{x:492,y:148},{x:345,y:188},{x:208,y:298},{x:152,y:448},
@@ -271,6 +344,7 @@ const TRACKS = [
     },
     {   // 17 ── EL GRANDE LOOP — Mexico City inspired: outer loop + inner stadium section with tunnel
         name: 'EL GRANDE LOOP', theme: 'mexican',
+        music: MUSIC.mexican,
         cp: [
             {x:512,y:690},{x:748,y:668},{x:892,y:538},{x:898,y:372},{x:758,y:252},
             {x:518,y:215},{x:295,y:255},{x:178,y:378},{x:205,y:535},{x:378,y:625},
@@ -282,6 +356,7 @@ const TRACKS = [
     },
     {   // 18 ── IRIE CIRCUIT — Reggae / Jamaica: winding circuit with two water-jump ramps
         name: 'IRIE CIRCUIT', theme: 'reggae',
+        music: MUSIC.reggae,
         cp: [
             {x:512,y:685},{x:735,y:655},{x:882,y:518},{x:858,y:345},{x:718,y:222},
             {x:512,y:185},{x:308,y:238},{x:182,y:365},{x:162,y:532},{x:295,y:648},
@@ -300,6 +375,7 @@ const TRACKS = [
     },
     {   // 19 ── OLÉ DASH — Spain: arena-edge circuit with two water-jump ramps
         name: 'OL\u00c9 DASH', theme: 'spanish',
+        music: MUSIC.spanish,
         cp: [
             {x:512,y:682},{x:762,y:658},{x:898,y:528},{x:908,y:365},{x:832,y:248},
             {x:658,y:188},{x:512,y:185},{x:368,y:192},{x:215,y:298},{x:158,y:448},
@@ -318,6 +394,7 @@ const TRACKS = [
     },
     {   // 20 ── JUNGLE JAMBOREE — Sepang/Singapore inspired: very winding + jungle tunnel
         name: 'JUNGLE JAMBOREE', theme: 'jungle',
+        music: MUSIC.jungle,
         cp: [
             {x:512,y:680},{x:718,y:655},{x:862,y:512},{x:848,y:342},{x:728,y:218},
             {x:562,y:182},{x:412,y:218},{x:292,y:178},{x:175,y:285},{x:215,y:432},
@@ -331,6 +408,7 @@ const TRACKS = [
         // ── SYNTHWAVE — giant multi-screen track ──
         name: 'NEON DRIVE',
         synth: true,
+        music: MUSIC.speedAction,   // shares BLASTER's driving theme — closest to synthwave
         W: SW_W, H: SW_H,
         rw: ROAD_W + 4,
         cp: [
@@ -349,6 +427,7 @@ const TRACKS = [
         // ── DESK CHAOS — procedurally generated, three laps, ~10× NEON DRIVE ──
         name: 'DESK CHAOS',
         desk: true,
+        music: MUSIC.racingSpeed,   // no desk-flavoured track in the library; keeps what it played before
         procedural: true,
         laps: 3,
         W: TEN_W, H: TEN_H,
@@ -1139,7 +1218,7 @@ class BootScene extends Phaser.Scene {
             // Warm browser cache for first 2 race tracks' music in background (non-blocking).
             // fetch() shares the HTTP cache with Phaser's XHR audio loader so the
             // downloads start now rather than blocking the first race transition.
-            TRACK_MUSIC.slice(0, 2).forEach(url => fetch(url).catch(() => {}));
+            TRACKS.slice(0, 2).forEach(t => t.music && fetch(t.music).catch(() => {}));
             this.time.delayedCall(300, () => this.scene.start('MainMenuScene'));
         });
     }
@@ -1517,12 +1596,29 @@ class BootScene extends Phaser.Scene {
             // procedural extras that depend on the splined waypoints
             if (t.desk) generateDeskExtras(t, wp);
 
-            const halloween = idx === 7;
-            const soccer    = idx === 5;
-            const asian     = idx === 2;
+            // Banked section: a span of waypoints becomes a chain of 'banking'
+            // circles. Laying them on the centreline with r <= rw/2 guarantees
+            // every circle stays inside the road — a speed bonus that spilled
+            // onto the grass would be an invitation to cut the corner.
+            if (t.bankWp) {
+                const bi0 = Math.round(t.bankWp[0] * wp.length);
+                const bi1 = Math.round(t.bankWp[1] * wp.length);
+                const br = Math.floor(t.rw / 2) - 1;
+                t.banking = [];
+                for (let i = bi0; i <= bi1; i += 4) {
+                    const p = wp[i % wp.length];
+                    t.banking.push({ x: p.x, y: p.y, r: br });
+                }
+            }
+
+            // Everything here keys off per-track properties, never off idx —
+            // inserting a track must not repaint the ones after it.
+            const theme     = t.theme || '';
+            const halloween = theme === 'halloween';
+            const soccer    = theme === 'soccer';
+            const asian     = theme === 'asian';
             const synth     = !!t.synth;
             const desk      = !!t.desk;
-            const theme     = t.theme || '';
 
             // ── visual ──
             // Support internal canvas downscaling for huge tracks (keeps
@@ -2714,6 +2810,111 @@ class BootScene extends Phaser.Scene {
                     vx.fillStyle=g; vx.beginPath(); vx.arc(m.x,m.y,m.r,0,Math.PI*2); vx.fill();
                 });
 
+            } else if (theme === 'madrid') {
+                // ── MADRING: Madrid street course, IFEMA halls and dry meseta ──
+                // Everything is sized off TW/TH: this track is a multi-screen
+                // world, so nothing here may assume the 1024x768 screen.
+                const span = (i0, i1) => {           // sub-path along the lap
+                    vx.beginPath();
+                    for (let i = i0; i <= i1; i++) {
+                        const p = wp[i % wp.length];
+                        if (i === i0) vx.moveTo(p.x, p.y); else vx.lineTo(p.x, p.y);
+                    }
+                };
+                const bank0 = Math.round((t.bankWp ? t.bankWp[0] : 0) * wp.length);
+                const bank1 = Math.round((t.bankWp ? t.bankWp[1] : 0) * wp.length);
+                // dry Madrid ground
+                vx.fillStyle = '#b9a878'; vx.fillRect(0, 0, TW, TH);
+                for (let i = 0; i < 120; i++) {
+                    const sh = 150 + (srand() * 40 | 0);
+                    vx.fillStyle = `rgba(${sh},${sh - 15},${sh - 60},0.5)`;
+                    vx.beginPath(); vx.arc(srand() * TW, srand() * TH, 30 + srand() * 120, 0, Math.PI * 2); vx.fill();
+                }
+                // Valdebebas parkland in the north half
+                for (let i = 0; i < 26; i++) {
+                    vx.fillStyle = `rgba(${70 + (srand() * 30 | 0)},${115 + (srand() * 40 | 0)},50,0.5)`;
+                    vx.beginPath();
+                    vx.ellipse(srand() * TW, srand() * TH * 0.45, 60 + srand() * 120, 40 + srand() * 90, srand() * 3, 0, Math.PI * 2);
+                    vx.fill();
+                }
+                // IFEMA exhibition halls — a row of pale sheds along the east side
+                const hall = (hx, hy, hw, hh) => {
+                    vx.fillStyle = 'rgba(0,0,0,0.22)'; vx.fillRect(hx + 7, hy + 9, hw, hh);
+                    vx.fillStyle = '#d8d5cc'; vx.fillRect(hx, hy, hw, hh);
+                    vx.strokeStyle = '#a8a49a'; vx.lineWidth = 2;
+                    for (let r = 12; r < hw; r += 22) {          // roof ribs
+                        vx.beginPath(); vx.moveTo(hx + r, hy); vx.lineTo(hx + r, hy + hh); vx.stroke();
+                    }
+                    vx.strokeStyle = '#8d8a82'; vx.lineWidth = 3; vx.strokeRect(hx, hy, hw, hh);
+                };
+                // scattered olive/plane trees (before the halls so nothing grows indoors)
+                for (let i = 0; i < 90; i++) {
+                    const tx2 = srand() * TW, ty2 = srand() * TH;
+                    vx.fillStyle = 'rgba(0,0,0,0.18)';
+                    vx.beginPath(); vx.arc(tx2 + 3, ty2 + 4, 7, 0, Math.PI * 2); vx.fill();
+                    vx.fillStyle = `rgba(${45 + (srand() * 30 | 0)},${95 + (srand() * 45 | 0)},${35 + (srand() * 25 | 0)},0.9)`;
+                    vx.beginPath(); vx.arc(tx2, ty2, 7 + srand() * 4, 0, Math.PI * 2); vx.fill();
+                }
+                hall(700, 1300, 210, 130); hall(700, 1460, 210, 130);
+                hall(960, 1300, 180, 130); hall(430, 1230, 200, 120);
+                hall(760, 760, 190, 110);  hall(980, 760, 150, 110);
+                // Palacio-style rotunda between the halls
+                vx.fillStyle = '#e2ded2';
+                vx.beginPath(); vx.arc(640, 1590, 60, 0, Math.PI * 2); vx.fill();
+                vx.strokeStyle = '#a8a49a'; vx.lineWidth = 3; vx.stroke();
+                vx.strokeStyle = 'rgba(140,136,126,0.8)'; vx.lineWidth = 2;
+                for (let k = 1; k < 4; k++) { vx.beginPath(); vx.arc(640, 1590, 60 - k * 14, 0, Math.PI * 2); vx.stroke(); }
+                // ── La Monumental: grandstand bowl wrapped around the banked loop ──
+                vx.lineJoin = 'round'; vx.setLineDash([]);
+                vx.lineCap = 'round';
+                vx.strokeStyle = '#8f8f98'; vx.lineWidth = t.rw + 120; span(bank0 - 6, bank1 + 6); vx.stroke();
+                vx.strokeStyle = '#b6b6be'; vx.lineWidth = t.rw + 104; span(bank0 - 6, bank1 + 6); vx.stroke();
+                // concentric tiers, widest first: each narrower ring covers the
+                // middle of the last one, so they read as stepped seating decks
+                for (let k = 0; k < 4; k++) {
+                    vx.lineWidth = t.rw + 100 - k * 16;
+                    vx.strokeStyle = k % 2 ? 'rgba(146,66,58,0.75)' : 'rgba(78,86,116,0.75)';
+                    span(bank0 - 6, bank1 + 6); vx.stroke();
+                    vx.lineCap = 'butt';
+                    vx.strokeStyle = 'rgba(40,40,50,0.35)';       // gangways between seat blocks
+                    vx.setLineDash([3, 15]);
+                    span(bank0 - 6, bank1 + 6); vx.stroke();
+                    vx.setLineDash([]); vx.lineCap = 'round';
+                }
+                vx.strokeStyle = '#83838d'; vx.lineWidth = t.rw + 34; span(bank0 - 6, bank1 + 6); vx.stroke();
+                // ── road ──
+                // kerb: red/white dashes laid wider than the asphalt, so the
+                // stripes show along both edges once the surface goes over them
+                vx.strokeStyle = '#cc2222'; vx.lineWidth = t.rw + 12;
+                vx.setLineDash([16, 16]); drawPath(vx, wp); vx.stroke();
+                vx.strokeStyle = '#f0f0f0'; vx.lineDashOffset = 16;
+                drawPath(vx, wp); vx.stroke();
+                vx.setLineDash([]); vx.lineDashOffset = 0;
+                vx.strokeStyle = '#3f3f46'; vx.lineWidth = t.rw; drawPath(vx, wp); vx.stroke();
+                vx.strokeStyle = '#47474f'; vx.lineWidth = t.rw - 14; drawPath(vx, wp); vx.stroke();
+                vx.strokeStyle = 'rgba(230,230,230,0.55)'; vx.lineWidth = 1.5;
+                vx.setLineDash([10, 16]); drawPath(vx, wp); vx.stroke(); vx.setLineDash([]);
+                // ── banked surface (same span the 'banking' circles cover in the mask) ──
+                if (t.bankWp) {
+                    vx.strokeStyle = '#565660'; vx.lineWidth = t.rw; span(bank0, bank1); vx.stroke();
+                    vx.strokeStyle = 'rgba(255,255,255,0.10)'; vx.lineWidth = t.rw - 16;
+                    span(bank0, bank1); vx.stroke();                    // sheen off the camber
+                    // chevrons pointing the way round, the flat-out corner's signature
+                    for (let i = bank0 + 4; i < bank1 - 4; i += 12) {
+                        const p = wp[i % wp.length], q = wp[(i + 3) % wp.length];
+                        const a = Math.atan2(q.y - p.y, q.x - p.x);
+                        vx.save(); vx.translate(p.x, p.y); vx.rotate(a);
+                        vx.strokeStyle = 'rgba(255,214,120,0.55)'; vx.lineWidth = 3; vx.lineCap = 'butt';
+                        vx.beginPath();
+                        vx.moveTo(-7, -t.rw / 2 + 3); vx.lineTo(4, 0); vx.lineTo(-7, t.rw / 2 - 3);
+                        vx.stroke(); vx.restore();
+                    }
+                    vx.lineCap = 'round';
+                    const lp = wp[bank1 % wp.length];
+                    vx.fillStyle = 'rgba(25,25,30,0.7)'; vx.font = 'bold 15px monospace';
+                    vx.textAlign = 'left'; vx.fillText('LA MONUMENTAL', lp.x + 34, lp.y + 30);
+                }
+
             } else if (desk) {
                 drawDeskTrack(vx, t, wp, srand);
             } else {
@@ -2724,21 +2925,18 @@ class BootScene extends Phaser.Scene {
                     vx.fillStyle = `rgb(${shade},${shade + 50},${shade - 10})`;
                     vx.beginPath(); vx.arc(srand() * GW, srand() * GH, 20 + srand() * 60, 0, Math.PI * 2); vx.fill();
                 }
-                // per-track ground critters / props (drawn before road so the road covers them)
-                if (idx === 0) {
-                    // SIDEWINDER — ants crawling around
+                // per-track ground critters / props (drawn before road so the road covers them),
+                // chosen by the track's own groundDecor property rather than its index
+                const gd = t.groundDecor;
+                if (gd === 'ants') {
                     for (let i = 0; i < 32; i++) drawAnt(srand() * GW, srand() * GH, srand() * Math.PI * 2, 2.4 + srand() * 1.6);
-                } else if (idx === 1) {
-                    // FANDANGO — spiders crawling around
+                } else if (gd === 'spiders') {
                     for (let i = 0; i < 18; i++) drawSpider(srand() * GW, srand() * GH, srand() * Math.PI * 2, 2.4 + srand() * 1.6);
-                } else if (idx === 3) {
-                    // BLASTER — daisies dotting the field
+                } else if (gd === 'daisies') {
                     for (let i = 0; i < 36; i++) drawDaisy(srand() * GW, srand() * GH, 2.2 + srand() * 1.6);
-                } else if (idx === 4) {
-                    // HUEVOS GRANDE — toadstools sprouting in the grass
+                } else if (gd === 'mushrooms') {
                     for (let i = 0; i < 24; i++) drawMushroom(srand() * GW, srand() * GH, 2.2 + srand() * 1.6);
-                } else if (idx === 6) {
-                    // BIG DUKES — used cigarettes left behind by the Duke boys
+                } else if (gd === 'cigarettes') {
                     for (let i = 0; i < 22; i++) drawCigarette(srand() * GW, srand() * GH, srand() * Math.PI * 2, 1.8 + srand() * 1.2);
                 }
                 // road shoulder
@@ -2819,6 +3017,9 @@ class BootScene extends Phaser.Scene {
             t.mud.forEach(m => {
                 cx.fillStyle = '#0000ff'; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI * 2); cx.fill();
             });
+            (t.banking || []).forEach(b => {
+                cx.fillStyle = '#ff0000'; cx.beginPath(); cx.arc(b.x, b.y, b.r, 0, Math.PI * 2); cx.fill();
+            });
             t.cpx = cx.getImageData(0, 0, cc.width, cc.height).data;
             t.cpxW = cc.width; t.cpxH = cc.height;
 
@@ -2852,8 +3053,14 @@ class BootScene extends Phaser.Scene {
                 const ra = srand() * Math.PI * 2, rd = srand() * t.rw * 0.3;
                 t.pks.push({ x: pt.x + Math.cos(ra) * rd, y: pt.y + Math.sin(ra) * rd, type: 'money', val: (1 + (srand() * 4 | 0)) * 10000 });
             }
-            for (let p = 0; p < 3; p++) {
-                const wi = Math.floor(srand() * wp.length);
+            // Nitro: seeded-random by default, but a track can pin it to chosen
+            // waypoints (values < 1 are read as a fraction of the lap) so boosts
+            // land where they are worth taking — e.g. the head of a long straight.
+            const nitroAt = t.nitroWp
+                ? t.nitroWp.map(v => Math.round(v < 1 ? v * wp.length : v) % wp.length)
+                : null;
+            for (let p = 0; p < (nitroAt ? nitroAt.length : 3); p++) {
+                const wi = nitroAt ? nitroAt[p] : Math.floor(srand() * wp.length);
                 const pt = wp[wi];
                 const ra = srand() * Math.PI * 2, rd = srand() * t.rw * 0.3;
                 t.pks.push({ x: pt.x + Math.cos(ra) * rd, y: pt.y + Math.sin(ra) * rd, type: 'nitro' });
@@ -3477,17 +3684,18 @@ class RaceScene extends Phaser.Scene {
 
         // music: stop any previous track, load + play current, then prefetch next in background
         this.sound.stopAll();
-        const musicKey = 'music_' + (gs.raceNum % TRACK_MUSIC.length);
+        // cache key is the file path, so tracks that share a file share one download
+        const musicKey = this.td.music ? 'music_' + this.td.music : null;
         const playCurrentMusic = () => {
-            if (this.cache.audio.exists(musicKey)) {
+            if (musicKey && this.cache.audio.exists(musicKey)) {
                 this.sound.play(musicKey, { loop: true, volume: 0.5 });
             }
             this.prefetchNextMusic();
         };
-        if (this.cache.audio.exists(musicKey)) {
+        if (!musicKey || this.cache.audio.exists(musicKey)) {
             playCurrentMusic();
         } else {
-            this.load.audio(musicKey, TRACK_MUSIC[gs.raceNum % TRACK_MUSIC.length]);
+            this.load.audio(musicKey, this.td.music);
             this.load.once('complete', playCurrentMusic);
             this.load.start();
         }
@@ -3953,6 +4161,11 @@ class RaceScene extends Phaser.Scene {
         switch (ter) {
             case 'road': t.tMult = 1.0; break;
             case 'mud':  t.tMult = 0.45; break;
+            // Banking is the inverse of mud: a top-down stand-in for a banked
+            // corner, where the camber lets the car carry speed through instead
+            // of scrubbing it off. Player and AI both scale by tMult, so it is
+            // the same gift to everyone.
+            case 'banking': t.tMult = 1.22; break;
             case 'offroad':
                 t.tMult = 0.55;
                 if (spd > 0.5 && Math.random() < 0.25) this.spawnDust(t.x, t.y);
@@ -4068,6 +4281,7 @@ class RaceScene extends Phaser.Scene {
         const i = (iy * TW + ix) * 4;
         if (px[i + 1] > 200 && px[i] < 100 && px[i + 2] < 100) return 'road';
         if (px[i + 2] > 200 && px[i] < 100 && px[i + 1] < 100) return 'mud';
+        if (px[i] > 200 && px[i + 1] < 100 && px[i + 2] < 100) return 'banking';
         return 'offroad';
     }
 
@@ -4706,10 +4920,11 @@ class RaceScene extends Phaser.Scene {
     }
 
     prefetchNextMusic() {
-        const nextIdx = (gs.raceNum + 1) % TRACK_MUSIC.length;
-        const nextKey = 'music_' + nextIdx;
+        const next = TRACKS[(gs.raceNum + 1) % TRACKS.length].music;
+        if (!next) return;
+        const nextKey = 'music_' + next;
         if (!this.cache.audio.exists(nextKey)) {
-            this.load.audio(nextKey, TRACK_MUSIC[nextIdx]);
+            this.load.audio(nextKey, next);
             this.load.start();
         }
     }
@@ -4899,8 +5114,8 @@ class TrackSelectScene extends Phaser.Scene {
             fontSize: '36px', fontFamily: 'monospace', color: '#FFD700', fontStyle: 'bold',
         }).setOrigin(0.5);
 
-        const highestUnlocked = gs.highestUnlocked || 0;
-        this.sel = Math.min(gs.raceNum % numTracks, highestUnlocked);
+        // Every track is raceable from the start — no progression gate.
+        this.sel = gs.raceNum % numTracks;
         this.boxes = [];
 
         for (let i = 0; i < numTracks; i++) {
@@ -4908,32 +5123,23 @@ class TrackSelectScene extends Phaser.Scene {
             const row = Math.floor(i / COLS);
             const cx = startX + col * CELL_W + BOX_W / 2;
             const cy = startY + row * CELL_H + BOX_H / 2;
-            const unlocked = i <= highestUnlocked;
 
             const g = this.add.graphics();
-            g.fillStyle(unlocked ? 0x111111 : 0x080808, 1);
+            g.fillStyle(0x111111, 1);
             g.fillRect(cx - BOX_W / 2, cy - BOX_H / 2, BOX_W, BOX_H);
-            g.lineStyle(2, unlocked ? 0xffffff : 0x333333, 1);
+            g.lineStyle(2, 0xffffff, 1);
             g.strokeRect(cx - BOX_W / 2, cy - BOX_H / 2, BOX_W, BOX_H);
 
             this.add.text(cx, cy, String(i + 1), {
                 fontSize: '26px', fontFamily: 'monospace',
-                color: unlocked ? '#ffffff' : '#222222', fontStyle: 'bold',
+                color: '#ffffff', fontStyle: 'bold',
             }).setOrigin(0.5);
 
-            if (!unlocked) {
-                this.add.text(cx + BOX_W / 2 - 13, cy - BOX_H / 2 + 8, '🔒', {
-                    fontSize: '13px',
-                }).setOrigin(0.5);
-            }
+            const zone = this.add.zone(cx, cy, BOX_W, BOX_H).setInteractive({ useHandCursor: true });
+            zone.on('pointerover', () => { this.sel = i; this.updateHighlight(); this.updateTrackName(); });
+            zone.on('pointerdown', () => { this.sel = i; this.confirm(); });
 
-            if (unlocked) {
-                const zone = this.add.zone(cx, cy, BOX_W, BOX_H).setInteractive({ useHandCursor: true });
-                zone.on('pointerover', () => { this.sel = i; this.updateHighlight(); this.updateTrackName(); });
-                zone.on('pointerdown', () => { this.sel = i; this.confirm(); });
-            }
-
-            this.boxes.push({ cx, cy, unlocked });
+            this.boxes.push({ cx, cy });
         }
 
         this.selGraphics = this.add.graphics();
@@ -4959,8 +5165,7 @@ class TrackSelectScene extends Phaser.Scene {
     }
 
     move(delta) {
-        const max = Math.min(gs.highestUnlocked || 0, TRACKS.length - 1);
-        this.sel = Phaser.Math.Clamp(this.sel + delta, 0, max);
+        this.sel = Phaser.Math.Clamp(this.sel + delta, 0, TRACKS.length - 1);
         this.updateHighlight();
         this.updateTrackName();
     }
@@ -4985,8 +5190,6 @@ class TrackSelectScene extends Phaser.Scene {
     }
 
     confirm() {
-        const max = gs.highestUnlocked || 0;
-        if (this.sel > max) return;
         gs.raceNum = this.sel;
         this.cameras.main.flash(200, 255, 215, 0);
         this.time.delayedCall(200, () => this.scene.start('RaceScene'));
