@@ -9,7 +9,9 @@
  *   model : madring-3d/assets/madring-sketchfab/scene.gltf
  *           "Circuito de Madring 2026 layout" by Dave Love, CC-BY-4.0.
  *           Real metric scale, 1 unit = 1 m, Y up, ground in the XZ plane.
- *   ours  : scripts/madring-centreline.js, world pixels, ~1.0244 px/m.
+ *   ours  : scripts/madring-geodata-centreline.js, world pixels, ~1.0244 px/m.
+ *           The published survey, deliberately — not the line the game races,
+ *           which is derived from this fit and would make the fit circular.
  *
  * Nothing here is guessed. The model's TarmacDark mesh — the driving surface
  * and only that — is rasterised to a 1 m grid and turned into a distance
@@ -81,8 +83,8 @@ function nodeMatrix(n) {
     ];
 }
 
-/** Every triangle of the surface material, flattened to model XZ. */
-function surfaceTriangles() {
+/** Every triangle of the named material, flattened to model XZ. */
+function surfaceTriangles(material = SURFACE_MATERIAL) {
     const tris = [];
     const visit = (ni, parent) => {
         const node = gltf.nodes[ni];
@@ -90,7 +92,7 @@ function surfaceTriangles() {
         if (node.mesh !== undefined) {
             for (const prim of gltf.meshes[node.mesh].primitives) {
                 const mat = gltf.materials[prim.material];
-                if (!mat || !mat.name.startsWith(SURFACE_MATERIAL)) continue;
+                if (!mat || !mat.name.startsWith(material)) continue;
                 const P = readAccessor(prim.attributes.POSITION), I = readAccessor(prim.indices);
                 const X = new Float64Array(P.count), Z = new Float64Array(P.count);
                 for (let i = 0; i < P.count; i++) {
@@ -203,7 +205,10 @@ function nelderMead(f, x0, step, iters) {
 }
 
 function fitModel() {
-    const { MADRING_CP, MADRING_WORLD } = require('./madring-centreline.js');
+    // The GEODATA line, not the one the game drives. Fitting against the raced
+    // line would be circular — that line is itself derived from this fit — and
+    // the geodata is the independent survey the model should be registered to.
+    const { MADRING_CP, MADRING_WORLD } = require('./madring-geodata-centreline.js');
     const tris = surfaceTriangles();
     const R = rasterise(tris);
     const DT = distanceToEdge(R.mask, R.W, R.H);
@@ -300,3 +305,48 @@ if (require.main === module) {
 
 module.exports = FIT;
 module.exports.CAP = CAP;
+
+// The tarmac raster itself, for scripts that need to ask "is this square metre
+// of the real circuit paved?" — scripts/madring-road-centre.js walks it to find
+// the middle of the road, and scripts/trackcheck.js uses it to score coverage.
+// Computed on demand and memoised; it costs ~2 s and most callers never want it.
+let _raster = null;
+module.exports.surfaceRaster = () => {
+    if (!_raster) {
+        const R = rasterise(surfaceTriangles());
+        _raster = { mask: R.mask, W: R.W, H: R.H, ox: R.ox, oz: R.oz, res: RES, bounds: R.bounds };
+    }
+    return _raster;
+};
+
+// Every triangle of a named material, flattened to model XZ as
+// [ax, az, bx, bz, cx, cz]. scripts/madring-validate.js uses it to ask where
+// the circuit's real overpasses cross the racing line.
+module.exports.materialTriangles = (material) => surfaceTriangles(material);
+
+// Centroid of a named material in model metres — used to find the model's own
+// start/finish gantry, so the game's timing line can be put under the painted
+// one instead of near it.
+module.exports.materialCentroid = (material) => {
+    const tris = surfaceTriangles(material);
+    if (!tris.length) return null;
+    let x = 0, z = 0;
+    for (const t of tris) for (let i = 0; i < 6; i += 2) { x += t[i]; z += t[i + 1]; }
+    return [x / (tris.length * 3), z / (tris.length * 3)];
+};
+
+// world pixel (x, y) → model metres (x, z), and back. The bake's camera uses
+// exactly this mapping, so anything expressed in one frame can be checked in
+// the other without a second, drifting copy of the arithmetic.
+const _th = FIT.rotationDeg * Math.PI / 180, _co = Math.cos(_th), _si = Math.sin(_th);
+module.exports.worldToModel = (x, y) => {
+    const ux = (x - FIT.centroidWorld.x) * FIT.metresPerWorldPx * FIT.mirror;
+    const uy = (y - FIT.centroidWorld.y) * FIT.metresPerWorldPx;
+    return [_co * ux - _si * uy + FIT.tx, _si * ux + _co * uy + FIT.tz];
+};
+module.exports.modelToWorld = (mx, mz) => {
+    const dx = mx - FIT.tx, dz = mz - FIT.tz;
+    const ux = _co * dx + _si * dz, uy = -_si * dx + _co * dz;
+    return [ux / FIT.metresPerWorldPx / FIT.mirror + FIT.centroidWorld.x,
+            uy / FIT.metresPerWorldPx + FIT.centroidWorld.y];
+};

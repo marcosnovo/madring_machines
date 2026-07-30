@@ -42,10 +42,13 @@ Circuit centreline — Tomislav Bacinger, "f1-circuits"
     https://github.com/bacinger/f1-circuits
     Licensed under the MIT License.
     circuits/es-2026.geojson supplies 116 lat/lon points of the Circuito de
-    Madring centreline (declared length 5474 m). The MADRING track's control
-    points are derived from it by scripts/madring-from-geojson.js — projected
-    to a local metric plane, scaled and resampled. No file from that project
-    is redistributed here; only the derived coordinates.
+    Madring centreline (declared length 5474 m). It is projected to a local
+    metric plane, scaled and resampled by scripts/madring-from-geojson.js into
+    scripts/madring-geodata-centreline.js. That line fixes the identity of the
+    lap — where the start/finish line is, which way round it goes, what order
+    the corners come in — and registers the 3D model below against it. It is no
+    longer the path the game drives; see the next entry. No file from that
+    project is redistributed here; only the derived coordinates.
 
 Circuit 3D model — Dave Love, "Circuito de Madring 2026 layout"
     https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
@@ -60,11 +63,27 @@ Circuit 3D model — Dave Love, "Circuito de Madring 2026 layout"
 
     It is also given in the in-game CREDITS screen (game.js, _buildCredits).
     The model itself lives at madring-3d/assets/madring-sketchfab/ with its
-    original license.txt alongside it. The MADRING track's ground texture,
-    images/madring-overhead.jpg, is an orthographic top-down render of this
-    model produced by scripts/madring-bake-overhead.js, and is therefore an
-    adaptation of it: anyone redistributing that image must carry the credit
-    above and the CC-BY-4.0 licence with it.
+    original license.txt alongside it.
+
+    TWO things in this repository are adaptations of that model, and both carry
+    the CC-BY-4.0 condition above:
+
+      - images/madring-overhead.jpg, the MADRING's ground texture: an
+        orthographic top-down render produced by
+        scripts/madring-bake-overhead.js.
+
+      - The MADRING's centreline itself — scripts/madring-centreline.js, and
+        the copy of it inlined as TRACKS[0].cp in game.js. It is measured, by
+        scripts/madring-road-centre.js, down the middle of the model's own
+        TarmacDark mesh. Previously the centreline came from the geodata alone,
+        but over 636 m of the lap the published polyline crosses the infield
+        where the circuit does not, and since the background is a render of the
+        model the two disagreeing was visible under the car. The model is
+        therefore authoritative for the shape of the road; the geodata remains
+        authoritative for the lap's identity.
+
+    Anyone redistributing either of those must carry the credit above and the
+    CC-BY-4.0 licence with it.
 
 Game framework — Phaser 3
     https://phaser.io/
@@ -97,11 +116,12 @@ road-marker sticker.
 
 No file in this repository is covered by a copyright carve-out — nothing here
 is "for reference only", and everything may be redistributed. Most of it is
-redistributable under the MIT License in LICENSE; the exception is the circuit
-3D model in madring-3d/assets/madring-sketchfab/ and the MADRING ground texture
-derived from it (images/madring-overhead.jpg), which are redistributable under
-CC-BY-4.0 with the credit set out in section 2. That is a permissive licence
-with an attribution condition, not a restriction on redistribution.
+redistributable under the MIT License in LICENSE; the exceptions are the circuit
+3D model in madring-3d/assets/madring-sketchfab/ and the two things derived from
+it — images/madring-overhead.jpg and the MADRING centreline — which are
+redistributable under CC-BY-4.0 with the credit set out in section 2. That is a
+permissive licence with an attribution condition, not a restriction on
+redistribution.
 
 
 4. ADDED BY THIS PROJECT
@@ -114,10 +134,13 @@ Original work by the Kilómetro Cero contributors, MIT licensed:
     drawn from primitive shapes at runtime in BootScene.genDrivers()
     (game.js), so the project ships no character art at all.
   - The "KM 0" sticker described in section 3.
-  - The MADRING track layout and the `banking` terrain type. See README.md
-    for what is derived from published circuit data and what is our own
-    approximation. The track's scenery is no longer ours: it is a render of
-    the CC-BY-4.0 model credited in section 2.
+  - The `banking` terrain type, and the MADRING's dressing — the banked
+    section, the tunnel spans, the nitro placement, the grid. The circuit's
+    geometry is NOT ours and never was: the shape of the road is measured off
+    the CC-BY-4.0 model credited in section 2, its position on the lap comes
+    from the MIT-licensed geodata also credited there, and its scenery is a
+    render of that same model. See scripts/MADRING-VALIDATION.md for exactly
+    which number came from where.
 
 
 5. TRADEMARK NOTICE

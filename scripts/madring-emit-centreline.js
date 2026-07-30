@@ -2,16 +2,27 @@
 /**
  * madring-emit-centreline.js
  *
- * Writes scripts/madring-centreline.js — the shared MADRING centreline that
- * both this game and madring-3d read, so neither can drift from the other.
+ * Writes scripts/madring-geodata-centreline.js — the circuit as the published
+ * geodata draws it. This is NOT the line the game drives. It is step one of
+ * two:
+ *
+ *   1. this script          published polyline → world pixels
+ *   2. madring-road-centre  that line snapped onto the 3D model's asphalt,
+ *                           written to scripts/madring-centreline.js
+ *
+ * The geodata is what fixes the circuit's identity — where the start/finish
+ * line is, which way round the lap goes, and the order of the corners — and
+ * scripts/madring-model-fit.js aligns the model to it. But over 636 m of the
+ * lap the published polyline cuts across the infield while the real circuit
+ * does not, so the model's tarmac is what the game finally races on. See
+ * scripts/MADRING-VALIDATION.md.
  *
  *     node scripts/madring-emit-centreline.js [/path/to/f1-circuits] [count]
  *
  * All it does is run scripts/madring-from-geojson.js at the chosen control
  * point count and format the result. The header it stamps into the file is
  * true because this script is the only thing that writes it; do not hand-edit
- * the output. After regenerating, paste the array into TRACKS[0].cp in game.js
- * and re-run scripts/madring-accuracy.js and scripts/madring-bake-overhead.js.
+ * the output. After regenerating, re-run scripts/madring-road-centre.js.
  */
 'use strict';
 
@@ -20,7 +31,7 @@ const path = require('path');
 
 const REPO = process.argv[2] && !/^\d+$/.test(process.argv[2]) ? process.argv[2] : '/tmp/f1-circuits';
 const N = Number(process.argv.find(a => /^\d+$/.test(a)) || 256);
-const OUT = path.join(__dirname, 'madring-centreline.js');
+const OUT = path.join(__dirname, 'madring-geodata-centreline.js');
 
 process.env.NCP = String(N);
 process.argv[2] = REPO;
@@ -54,19 +65,22 @@ for (let i = 0; i < CP.length; i += 4)
 fs.writeFileSync(OUT, `// GENERATED — do not edit by hand.
 // Regenerate: node scripts/madring-emit-centreline.js <path-to-f1-circuits> ${N}
 //
-// MADRING centreline, derived from bacinger/f1-circuits (MIT),
-// circuits/es-2026.geojson — the real Circuito de Madring, 5474 m declared,
-// ${lenM.toFixed(0)} m as measured off the published polyline. Projected to a local metric
-// plane, confirmed clockwise, scaled so the circuit's tightest pinch (58.6 m,
-// under La Monumental) stays wider than the road, and resampled at even arc
-// length to ${N} points.
+// The MADRING as the PUBLISHED GEODATA draws it — derived from
+// bacinger/f1-circuits (MIT), circuits/es-2026.geojson, the real Circuito de
+// Madring, 5474 m declared, ${lenM.toFixed(0)} m as measured off the polyline. Projected to a
+// local metric plane, confirmed clockwise and resampled at even arc length to
+// ${N} points.
 //
-// Why ${N} and not 64: game.js drives the Catmull-Rom spline through these
+// THIS IS NOT THE LINE THE GAME DRIVES. It is the seed that
+// scripts/madring-model-fit.js aligns the 3D model to, and that
+// scripts/madring-road-centre.js then snaps onto the model's asphalt to
+// produce scripts/madring-centreline.js. Over 636 m of the lap the two
+// disagree and the model wins; see scripts/MADRING-VALIDATION.md.
+//
+// Why ${N} and not 64: the game drives the Catmull-Rom spline through these
 // points, not the points themselves, and at 64 control points that spline cut
 // every corner — a ${(5284).toFixed(0)} m lap and up to 17.8 m of deviation, wider than the
-// road. See scripts/madring-accuracy.js for the measurement, and note that
-// game.js pairs this with spp: 5 so the finer curve still lands on the same
-// 1280 waypoints the coarse one did.
+// road. See scripts/madring-accuracy.js for the measurement.
 //
 //   world      : ${WORLD.W} x ${WORLD.H} px
 //   scale      : ${scale.toFixed(6)} px/m

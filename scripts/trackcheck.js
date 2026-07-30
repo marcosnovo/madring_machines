@@ -2,6 +2,12 @@
 //   node .trackcheck.js
 // Measures lap length, section proportions and self-clearance, then renders
 // a labelled preview PNG so the layout can be inspected by eye.
+//
+// NOTE: this works on a control-point file whose points carry `n` (name)
+// labels — scripts/madring-trace.js, the 64-point hand trace the MADRING was
+// first built from. It is NOT the check for the shipped MADRING any more; that
+// is scripts/madring-validate.js, which reads the control points out of
+// game.js and compares them against the 3D model rather than against names.
 const SRC = process.env.TRACK || require('path').join(__dirname, 'madring-trace.js');
 const CP = require(SRC);
 const WORLD = CP.WORLD || { W: 1024, H: 768 };

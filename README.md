@@ -6,8 +6,9 @@
 A browser-based top-down arcade racer built with [Phaser 3](https://phaser.io/).
 
 Its headline circuit is a layout **inspired by the IFEMA-Valdebebas street
-course in Madrid** — 22 corners, two tunnels and a banked semicircle — rebuilt
-as a 2D top-down track.
+course in Madrid** — a banked semicircle, two tunnels under the circuit's real
+motorway overpasses, and a centreline measured down the middle of its own
+asphalt rather than drawn by hand.
 
 > **This is a derivative work.** The game engine comes from
 > [`leereilly/micro-machines`](https://github.com/leereilly/micro-machines)
@@ -58,8 +59,8 @@ python3 -m http.server 8000
       <td align="center">1</td>
       <td><strong>MADRING</strong></td>
       <td><img src="images/map-madring.png" width="240" alt="MADRING"></td>
-      <td>IFEMA-Valdebebas street course, Madrid — 256-point centreline from the real circuit's published geodata, scaled to a 1338x2033 world</td>
-      <td>Madrid street course — overhead view baked from a 3D scan of the real circuit, with La Monumental, the pit complex and two tunnels</td>
+      <td>IFEMA-Valdebebas street course, Madrid — 256-point centreline measured down the middle of the circuit's own asphalt in a 3D model of it, positioned on the lap by the published geodata; 5429 m against a published 5474 m</td>
+      <td>Madrid street course — overhead view baked from a 3D model of the real circuit, with La Monumental, the pit complex and the two real overpasses as tunnels</td>
     </tr>
     <tr>
       <td align="center">2</td>
@@ -248,6 +249,8 @@ contributors under the MIT licence in [`LICENSE`](LICENSE).
 | Renamed the product, page title and on-screen title | See [Naming and trademarks](#naming-and-trademarks) |
 | Added [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) | Upstream had no `LICENSE` file — only a line in its README |
 | MADRING's scenery is a baked overhead render of a 3D model of the real circuit (`scripts/madring-bake-overhead.js`), not hand-drawn art | The point of the track is that it is the real place; invented IFEMA halls and meseta scrub were an approximation of something we had a real source for |
+| MADRING's centreline is measured down the middle of that same model's asphalt (`scripts/madring-road-centre.js`), with the published geodata reduced to fixing where the lap starts and which way it goes | The published polyline crosses the infield for 636 m of the lap where the circuit does not. Since the background is a render of the model, that disagreement was visible under the car. Both this game and `madring-3d/` now race the same measured line — 5429 m against a published 5474 m. See [`scripts/MADRING-VALIDATION.md`](scripts/MADRING-VALIDATION.md) |
+| The four drivers' cars are drawn at 4x their on-screen size with a contact shadow, a hard outline, a visible driver and one livery each (`BootScene.genDrivers`) | They have to read as four distinct cars at 26x38 px on a dark aerial photograph, which is a much harder background than the flat green they were designed against |
 
 ### Removed, and why
 

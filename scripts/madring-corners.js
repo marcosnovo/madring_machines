@@ -7,12 +7,20 @@
  *
  *     node scripts/madring-corners.js /path/to/f1-circuits
  *
- * It reads the source GeoJSON directly rather than the 64 control points in
- * madring-centreline.js: 64 points around a 5.4 km lap is one sample every
- * 85 m, which cannot resolve 22 corners. The raw file has 115 points spaced
- * 8-380 m apart -- dense inside corners, sparse on straights -- which is
- * exactly the distribution corner detection needs. madring-from-geojson.js is
- * still used for `scale`, so apex positions can be reported in world pixels.
+ * It reads the source GeoJSON directly rather than any resampled copy of it:
+ * an evenly resampled line is one sample every 20-85 m, and even spacing is
+ * the wrong distribution for corner detection. The raw file has 115 points
+ * spaced 8-380 m apart -- dense inside corners, sparse on straights -- which
+ * is exactly what this wants. madring-from-geojson.js is still used for
+ * `scale`, so apex positions can be reported in world pixels.
+ *
+ * THIS DESCRIBES THE PUBLISHED POLYLINE, NOT THE TRACK THE GAME SHIPS. The
+ * game's centreline is measured off the 3D model instead, because over 636 m
+ * of the lap the polyline crosses the infield where the circuit does not; see
+ * scripts/MADRING-VALIDATION.md, which is written by
+ * scripts/madring-validate.js and is the check that matters for gameplay.
+ * What this script is still good for is the corner count and the corner
+ * numbering, which the model carries no labels for.
  *
  * Method
  *   1. project lat/lon to the same local metric plane the pipeline uses
@@ -28,7 +36,7 @@
  *   7. the corner's angle is the net heading change over the run, trimmed at
  *      each end past any samples that turn against the run's direction
  *
- * Writes scripts/MADRING-VALIDATION.md and prints a summary.
+ * Writes scripts/MADRING-GEODATA-CORNERS.md and prints a summary.
  */
 'use strict';
 
@@ -375,7 +383,9 @@ md.push('position 12, ~85° corners at positions 13 and 17, a mirrored left/righ
 md.push('118° corner at 20 and a 90° corner at 22 - matching La Monumental (T12), T13, T17, Curva');
 md.push('Norte and its mirror (T18/T19), T20 and El Parque (T22). **The file\'s first point is the');
 md.push('start/finish line, and detected corner 1 is Turn 1.** Note that this also means');
-md.push('`madring-centreline.js` control point `i0` is the start/finish line.');
+md.push('`madring-geodata-centreline.js` control point `i0` is the start/finish line, and');
+md.push("the model's own start/finish gantry sits 0.6% of a lap from it — see");
+md.push('`MADRING-VALIDATION.md`.');
 md.push('');
 md.push('## Corner table');
 md.push('');
@@ -484,7 +494,7 @@ md.push('closed polyline and a length. Anything the game does with those numbers
 md.push('published descriptions, not from measurement.');
 md.push('');
 
-const OUT = path.join(__dirname, 'MADRING-VALIDATION.md');
+const OUT = path.join(__dirname, 'MADRING-GEODATA-CORNERS.md');
 fs.writeFileSync(OUT, md.join('\n'));
 console.log(`\n  wrote ${OUT}`);
 

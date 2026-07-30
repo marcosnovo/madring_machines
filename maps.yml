@@ -9,8 +9,8 @@
 maps:
   - id: madring
     name: MADRING
-    inspiration: "IFEMA-Valdebebas street course, Madrid — 256-point centreline from the real circuit's published geodata, scaled to a 1338x2033 world"
-    theme: "Madrid street course — overhead view baked from a 3D scan of the real circuit, with La Monumental, the pit complex and two tunnels"
+    inspiration: "IFEMA-Valdebebas street course, Madrid — 256-point centreline measured down the middle of the circuit's own asphalt in a 3D model of it, positioned on the lap by the published geodata; 5429 m against a published 5474 m"
+    theme: "Madrid street course — overhead view baked from a 3D model of the real circuit, with La Monumental, the pit complex and the two real overpasses as tunnels"
 
   - id: sidewinder
     name: SIDEWINDER
