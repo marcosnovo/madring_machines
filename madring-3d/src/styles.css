@@ -534,3 +534,20 @@ button {
   padding-bottom: 5%;
   font-size: 140%;
 }
+
+/* Replaces the upstream @pmndrs/branding footer — see ui/Intro.tsx. */
+.attribution {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  bottom: 28px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #6b6b6b;
+}
+.attribution a {
+  color: #8f8f8f;
+  text-decoration: none;
+  border-bottom: 1px solid #3a3a3a;
+}
+.attribution a:hover { color: #ccc; }

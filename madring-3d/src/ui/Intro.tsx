@@ -1,5 +1,4 @@
 import { Suspense, useEffect, useState } from 'react'
-import { Footer } from '@pmndrs/branding'
 import { useProgress } from '@react-three/drei'
 
 import type { ReactNode } from 'react'
@@ -36,12 +35,17 @@ export function Intro({ children }: { children: ReactNode }): JSX.Element {
             </p>
           </div>
         </div>
-        <Footer
-          date="2. June"
-          year="2021"
-          link1={<a href="https://github.com/pmndrs/react-three-fiber">@react-three/fiber</a>}
-          link2={<a href="https://github.com/pmndrs/racing-game">/racing-game</a>}
-        />
+        {/* The upstream @pmndrs/branding Footer used to sit here. It is another
+            organisation's branding on a derivative they had no part in, which
+            reads as endorsement. Attribution is not lost — it lives in NOTICE
+            and README, which is where the MIT licence actually requires it. */}
+        <footer className="attribution">
+          Derivative of{' '}
+          <a href="https://github.com/pmndrs/racing-game">@pmndrs/racing-game</a> and{' '}
+          <a href="https://github.com/colyseus/react-racing-game">colyseus/react-racing-game</a>,
+          both MIT. Circuit derived from{' '}
+          <a href="https://github.com/bacinger/f1-circuits">f1-circuits</a> (MIT).
+        </footer>
       </div>
     </>
   )

@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [claude/madring-f1-game-audit-byyi9c]
+    branches: [main, claude/madring-f1-game-audit-byyi9c]
   workflow_dispatch:
 
 # Allow the workflow to publish Pages, but nothing else.
