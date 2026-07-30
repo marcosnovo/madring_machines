@@ -27,12 +27,13 @@ jobs:
         with:
           node-version: 20
 
-      # `enablement: true` turns Pages on for the repository if it is not
-      # already, so this does not need a manual visit to repo settings first.
+      # No `enablement: true` here: creating a Pages site needs repo-admin
+      # rights that the default GITHUB_TOKEN does not have, and the action
+      # fails the whole run with "Resource not accessible by integration"
+      # rather than skipping. Pages has to be switched on once by hand, at
+      # Settings -> Pages -> Source -> "GitHub Actions".
       - uses: actions/configure-pages@v5
         id: pages
-        with:
-          enablement: true
 
       - name: Install (2D)
         run: npm ci
