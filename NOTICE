@@ -105,9 +105,11 @@ project, its page title, or its branding.
   - "Micro Machines" is a trademark of Codemasters / Hasbro. It names the
     upstream open-source repository this work derives from, and is used here
     only to identify that repository, as MIT attribution requires.
-  - "MADRING" is a trademark of the Gran Premio de Madrid. It appears in this
-    codebase only as an internal identifier for the track's data structure.
-    The circuit is described to players as a layout inspired by the
+  - "MADRING" is a trademark of the Gran Premio de Madrid. It is the track's
+    internal identifier, and as such appears as that one track's name in the
+    track-select list and as the small watermark the engine draws on every
+    track canvas. It is NOT used as the name of this project, its page title,
+    or its branding, and the circuit is described as a layout inspired by the
     IFEMA-Valdebebas street course.
   - "Formula 1", "F1" and "Grand Prix" are trademarks of Formula One Licensing
     BV. They are not used in this project's names, artwork or track dressing.

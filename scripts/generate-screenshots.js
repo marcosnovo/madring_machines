@@ -162,7 +162,12 @@ async function main() {
   const server = await startServer();
   console.log(`Server: http://127.0.0.1:${PORT}/`);
 
-  const browser = await chromium.launch({ headless: true });
+  // CHROMIUM_PATH lets a CI or sandbox image point at a browser it already has,
+  // instead of requiring `npx playwright install` to fetch a matching build.
+  const browser = await chromium.launch({
+    headless: true,
+    ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+  });
   const page = await browser.newPage();
   await page.setViewportSize({ width: 1024, height: 768 });
 
