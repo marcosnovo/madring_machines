@@ -7,7 +7,7 @@ import { useBox } from '@react-three/cannon'
 import { PositionalAudio, useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import type { BoxBufferGeometry, Group, Mesh, MeshStandardMaterial, PositionalAudio as PositionalAudioImpl } from 'three'
-import { Color, MathUtils, Quaternion, Vector3 } from 'three'
+import { Color, MathUtils, Vector3 } from 'three'
 import type { GLTF } from 'three-stdlib'
 
 import type { Camera, Controls } from '../../store'
@@ -117,9 +117,6 @@ export const Chassis = forwardRef<Group, PropsWithChildren<BoxProps>>(({ args = 
     if (wheel.current) wheel.current.rotation.z = lerp(wheel.current.rotation.z, controls.left ? -Math.PI : controls.right ? Math.PI : 0, delta)
     needle.current.rotation.y = (mutation.speed / maxSpeed) * -Math.PI * 2 - 0.9
     chassis_1.current.material.color.lerp(c.set(getState().color), 0.1)
-
-    if (chassis_1.current.parent) {
-    }
   })
 
   return (

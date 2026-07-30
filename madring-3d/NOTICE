@@ -1,0 +1,208 @@
+Kilómetro Cero — 3D circuit mode
+================================
+
+This directory is a derivative work, separate from the Phaser game at the root
+of this repository. This NOTICE records what was inherited, what was added, and
+what was removed. See ../NOTICE for the root project.
+
+
+1. UPSTREAM WORK
+----------------
+
+The 3D mode is derived from:
+
+    react-racing-game
+    https://github.com/colyseus/react-racing-game
+    Licensed under the MIT License
+
+which is itself a fork of:
+
+    @pmndrs/racing-game
+    Copyright 2021 pmndrs, contributors
+    https://github.com/pmndrs/racing-game
+    Licensed under the MIT License
+
+The upstream repository was cloned into this directory and its .git removed.
+Everything here that is not listed in section 4 descends from that project — in
+particular the React Three Fiber application shell: the @react-three/cannon
+raycast-vehicle physics and vehicle tuning, the chase/first-person/bird's-eye
+cameras, the dust, skid, boost and engine-audio effects, the zustand store and
+key bindings, and the whole HUD (clock, speedometer, help, colour picker,
+minimap, leaderboard).
+
+The upstream MIT licence text is reproduced verbatim in LICENSE.md and continues
+to govern this work. The typo in its copyright line ("pmdrs") is upstream's; it
+is left untouched.
+
+
+2. THIRD-PARTY ASSETS
+---------------------
+
+Vehicle model — Alexus16, "Classic Muscle car"
+    https://sketchfab.com/3d-models/classic-muscle-car-641efc889e5f4543bae51d0922e6f4b3
+    Licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+    Shipped as public/models/chassis-draco.glb and wheel-draco.glb. This asset
+    is still in use, so the attribution is required and is retained both here
+    and in the comment blocks at the top of src/models/vehicle/Chassis.tsx and
+    src/models/vehicle/Wheel.tsx.
+
+Environment map — "Dikhololo Night"
+    https://polyhaven.com/a/dikhololo_night
+    Licensed CC0 1.0 Universal (public domain dedication).
+    Shipped as public/textures/dikhololo_night_1k.hdr. No attribution is
+    legally required; it is given here voluntarily.
+
+Draco decoder — Google, "Draco 3D Data Compression"
+    https://github.com/google/draco
+    Licensed under the Apache License 2.0.
+    public/draco/ holds draco_decoder.js, draco_decoder.wasm and
+    draco_wasm_wrapper.js, copied unmodified from the `three` npm package
+    (three/examples/js/libs/draco/gltf/), together with that folder's own
+    README.md. Upstream fetched these files at runtime from
+    https://www.gstatic.com/draco/...; vendoring them means the game makes no
+    third-party network requests at all.
+
+Sound effects and HUD art — inherited from the upstream repository
+    public/sounds/*.mp3, public/textures/{cursor.svg,mask.svg,no_sound.png} and
+    public/images/{gold,silver,bronze}.png came with @pmndrs/racing-game, which
+    records no separate attribution for them and licenses the repository as a
+    whole under MIT. They are redistributed here on that basis.
+
+Circuit centreline — Tomislav Bacinger, "f1-circuits"
+    https://github.com/bacinger/f1-circuits
+    Licensed under the MIT License.
+    circuits/es-2026.geojson supplies 116 lat/lon points of the circuit
+    centreline (declared length 5474 m). src/circuit/centreline.ts holds
+    coordinates derived from it — projected to a local metric plane, scaled and
+    resampled by ../scripts/madring-from-geojson.js. No file from that project
+    is redistributed here; only the derived coordinates.
+
+Libraries — three.js, React, @react-three/fiber, @react-three/drei,
+@react-three/cannon, cannon-es, zustand, leva, lodash-es, vite, @pmndrs/branding
+    All MIT. Consumed as npm dependencies; not vendored in this repository.
+
+Typeface — Inter, by Rasmus Andersson
+    https://rsms.me/inter/
+    Licensed under the SIL Open Font License 1.1.
+    Consumed as the `inter-ui` npm dependency. Its .woff files are emitted into
+    the production bundle by vite.
+
+
+3. REMOVED FROM THE UPSTREAM WORK
+---------------------------------
+
+3.1 The track, and its CC-BY attribution
+
+The upstream 3D map was:
+
+    "Desert Race Game Prototype Map V2" by Batuhan13
+    https://sketchfab.com/3d-models/desert-race-game-prototype-map-v2-2ccd3dcbd197415d9f1b97c30b1248c5
+    Licensed CC-BY-4.0
+
+It has been replaced in full by the procedurally generated circuit described in
+section 4, and every trace of it has been deleted:
+
+    public/models/track-draco.glb        the baked map (track, terrain,
+                                         mountains, water, birds, clouds and
+                                         the locomotive)
+    public/textures/heightmap_1024.png   the cannon Heightfield the car drove on
+    assets/track.blend                   the Blender source for the map
+    src/models/track/Track.tsx           the mesh-by-mesh renderer for it
+    src/models/track/Heightmap.tsx       the Heightfield builder
+    src/models/track/Train.tsx           the level's scripted train
+    src/models/Ramp.tsx                  a jump placed for the desert layout
+    public/sounds/water.mp3              played by the map's lake
+    public/sounds/train.mp3              played by the train
+
+No part of that asset is used or shipped, so its CC-BY-4.0 attribution no
+longer applies to this work and has been removed along with it. The same
+deletion removes a second CC-BY-4.0 asset that was baked into the same file,
+"Train, Locomotive SD40-2" by NIKCORE
+(https://sketchfab.com/3d-models/train-locomotive-sd40-2-bdeadf60bf774adc9a39c744792c02c4).
+
+The vehicle .glb files are NOT affected by this — see section 2, their CC-BY
+attribution stands.
+
+3.2 The multiplayer server
+
+The fork added a Colyseus backend, and the client refused to render anything at
+all until it had joined a room on ws://localhost:2567. We do not run that
+server, so the whole layer is gone:
+
+    server/                              the Colyseus server and its schema
+    MULTIPLAYER.md                       its documentation
+    src/network/OpponentListComponent.tsx
+    src/models/vehicle/OpponentVehicle.tsx
+    src/models/vehicle/OpponentChassis.tsx
+    src/ui/Rank.tsx                      the multiplayer ranking table
+    public/models/chassis-animator-draco.glb   used only by opponent cars
+
+src/network/api.ts is now a local single-player stand-in that keeps the same
+shape the rest of the code expects (`gameRoom.sessionId`, a players map with
+onAdd/onRemove, and a `send()` that does nothing), so the game boots offline.
+The `colyseus.js` dependency has been dropped.
+
+3.3 The hosted leaderboard and OAuth sign-in
+
+src/data.ts talked to a Supabase project whose URL and anonymous key were
+hard-coded in the source, and src/ui/Auth.tsx offered Google and GitHub OAuth so
+players could post scores to it. That is somebody else's backend. src/data.ts
+has been rewritten to keep lap times in localStorage, and these were deleted:
+
+    src/ui/Auth.tsx
+    src/ui/Finished.tsx                  the post-race score-submission screen
+
+The `@supabase/supabase-js` dependency has been dropped. Nothing in this
+directory now makes a network request.
+
+3.4 Repository furniture
+
+    .github/, .husky/, CONTRIBUTING.md, thumbnail.webp   upstream project
+                                                         housekeeping
+    assets/chassis.blend, assets/wheel.blend             Blender sources for the
+                                                         vehicle; the shipped
+                                                         .glb files and their
+                                                         CC-BY attribution are
+                                                         unaffected
+
+
+4. ADDED BY THIS PROJECT
+------------------------
+
+Original work by the Kilómetro Cero contributors, MIT licensed:
+
+  - src/circuit/ — the circuit generator. layout.ts turns the 64 derived
+    centreline control points into an evenly sampled 3D road (arc length, signed
+    curvature, elevation, banking, width, and an orthonormal road frame per
+    sample); geometry.ts sweeps that description into the asphalt, kerb, run-off,
+    barrier, tunnel and collision ribbons. What is derived from real data and
+    what is our approximation is set out in README.md.
+  - src/models/track/Circuit.tsx, CircuitPhysics.tsx, Ground.tsx and
+    LapTiming.tsx — the renderer, the trimesh + barrier collision, the ground,
+    and sector/lap timing.
+  - src/models/Killzone.tsx — replaces upstream's six-plane BoundingBox, which
+    was in permanent contact with everything inside it.
+  - src/frame.ts — a frame-time clamp; several upstream smoothing terms diverge
+    below about 20 fps.
+  - src/draco.ts — points the loader at the vendored decoder.
+
+No file in this directory is covered by a copyright carve-out. Everything here
+is redistributable under the MIT License in LICENSE.md.
+
+
+5. TRADEMARK NOTICE
+-------------------
+
+This project is unaffiliated with, and not endorsed by, any of the following.
+No trademark of any of them is used as, or as part of, the name of this
+project, its page title, or its branding.
+
+  - "MADRING" is a trademark of the Gran Premio de Madrid. It appears in this
+    codebase only as an internal identifier for the circuit's centreline data.
+    The circuit is described to players as a layout inspired by the
+    IFEMA-Valdebebas street course.
+  - "Formula 1", "F1" and "Grand Prix" are trademarks of Formula One Licensing
+    BV. They are not used in this project's names, artwork or track dressing.
+  - "Colyseus", "poimandres"/"pmndrs" and "Supabase" name the upstream projects
+    and services this work derives from or has removed, and are used here only
+    to identify them, as MIT attribution requires.

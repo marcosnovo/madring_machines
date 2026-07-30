@@ -43,12 +43,14 @@
     "plugins": [
         "react"
     ],
-    "ignorePatterns": ["server/src/**/*.ts"],
     "rules": {
         "eol-last": ["error", "always"],
         "no-debugger": "error",
         "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
         "react/no-children-prop": 0,
+        // Every @react-three/fiber element is an "unknown property" to
+        // eslint-plugin-react; the rule cannot see three.js's element namespace.
+        "react/no-unknown-property": 0,
         "react/display-name": 0,
         "react/prop-types": 0,
         "react/react-in-jsx-scope": 0,

@@ -33,7 +33,8 @@ const write = (scores: SavedScore[]): void => {
   try {
     window.localStorage.setItem(KEY, JSON.stringify(scores))
   } catch {
-    /* private browsing, quota — a leaderboard is not worth throwing over */
+    // private browsing, quota — a leaderboard is not worth throwing over
+    return
   }
 }
 

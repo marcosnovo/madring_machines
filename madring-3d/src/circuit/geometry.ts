@@ -247,7 +247,8 @@ export function bandGeometry(layout: Layout, index: number, width: number, heigh
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
   geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2))
-  geometry.setIndex([0, 2, 1, 1, 2, 3])
+  // Same winding rule as `ribbon`: normal = cross(r, t) = up.
+  geometry.setIndex([0, 1, 2, 1, 3, 2])
   geometry.computeVertexNormals()
   return geometry
 }

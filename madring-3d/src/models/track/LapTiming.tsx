@@ -7,6 +7,7 @@ import { useBox } from '@react-three/cannon'
 import { useCallback, useRef } from 'react'
 
 import { getLayout, pointAt } from '../../circuit/layout'
+import { insertScore } from '../../data'
 import { getState, setState, useStore } from '../../store'
 
 const SECTORS = [1 / 3, 2 / 3]
@@ -51,7 +52,9 @@ function StartFinishTrigger({ passed }: { passed: Passed }): null {
       const now = Date.now()
       if (started.current && start && passed.current.every(Boolean)) {
         // Completed lap: record it, then immediately open the next one.
-        setState({ finished: Math.max(now - start, 0) })
+        const lap = Math.max(now - start, 0)
+        setState({ finished: lap })
+        void insertScore({ name: 'You', time: lap })
       }
       started.current = true
       passed.current = SECTORS.map(() => false)

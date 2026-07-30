@@ -35,7 +35,7 @@ function useCheckerTexture(): CanvasTexture {
     ctx.fillRect(size / 2, size / 2, size / 2, size / 2)
     const texture = new CanvasTexture(canvas)
     texture.wrapS = texture.wrapT = RepeatWrapping
-    texture.repeat.set(30, 3)
+    texture.repeat.set(12, 1)
     texture.magFilter = texture.minFilter = NearestFilter
     return texture
   }, [])
