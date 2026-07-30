@@ -2,7 +2,7 @@
 /**
  * generate-screenshots.js
  *
- * Generates a PNG screenshot of every Micro Machines map and updates README.md.
+ * Generates a PNG screenshot of every map and updates README.md.
  *
  * Usage:
  *   npm run screenshots

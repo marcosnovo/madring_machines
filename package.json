@@ -1,15 +1,18 @@
 {
-  "name": "micro-machines",
+  "name": "kilometro-cero",
   "version": "1.0.0",
-  "description": "Browser-based Micro Machines racing game",
+  "description": "Browser-based top-down arcade racer. Derivative work of leereilly/micro-machines (MIT).",
   "private": true,
+  "license": "MIT",
   "scripts": {
+    "build": "node esbuild.js",
     "screenshots": "node scripts/generate-screenshots.js"
   },
   "dependencies": {
     "phaser": "^3.70.0"
   },
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "js-yaml": "^4.1.0",
     "playwright": "^1.49.0"
   }

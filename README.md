@@ -1,22 +1,41 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="images/dark-logo.png">
-    <img alt="Micro Machines" src="images/light-logo.png" width="40%">
-  </picture>
+  <h1>KILÓMETRO CERO</h1>
+  <p><em>Carreras cenitales · Madrid</em></p>
 </div>
 
-A browser-based racing game built with [Phaser 3](https://phaser.io/), GitHub Copilot, Claude Sonnet 4.6 + 4.7. Inspired by the classic [Micro Machines](https://highwayforever.wordpress.com/2022/03/04/micro-machines-codemasters-1991/) and [Ivan "Ironman" Stewart's Super Off Road](https://vintagearcade.net/shop/arcade-games/super-off-road-arcade-game/) games. Built for [GameDev.js 2026 game jam](https://itch.io/jam/gamedevjs-2026).
+A browser-based top-down arcade racer built with [Phaser 3](https://phaser.io/).
+
+Its headline circuit is a layout **inspired by the IFEMA-Valdebebas street
+course in Madrid** — 22 corners, two tunnels and a banked semicircle — rebuilt
+as a 2D top-down track.
+
+> **This is a derivative work.** The game engine comes from
+> [`leereilly/micro-machines`](https://github.com/leereilly/micro-machines)
+> (MIT). See [What is derived and what is new](#what-is-derived-and-what-is-new)
+> below, and [`NOTICE`](NOTICE) for the full record.
 
 ## Play
 
-Open `index.html` in a browser.
+```sh
+npm install     # once
+node esbuild.js # bundles game.js → dist/bundle.js
+```
+
+Then serve the folder and open it in a browser — `index.html` loads
+`dist/bundle.js`, and the music and track textures need HTTP rather than
+`file://`:
+
+```sh
+python3 -m http.server 8000
+# → http://localhost:8000
+```
 
 ## Features
 
-- 4-player race (1 human + 3 AI opponents): Copilot, Frank, Hubot, and Mona
-- Procedurally generated tracks
-- Pickups, nitro boosts, and mud/terrain effects
-- Multiple race tracks with unique music
+- 4-player race (1 human + 3 AI opponents): OSO, GATA, CIBELES and MADROÑO
+- 23 tracks, all selectable from the start
+- Pickups, nitro boosts, tunnels, ramps and terrain effects
+- Per-track music
 
 
 <!-- MAPS_START -->
@@ -95,21 +114,21 @@ Open `index.html` in a browser.
       <td align="center">9</td>
       <td><strong>SAFARI RUSH</strong></td>
       <td><img src="images/map-safari-rush.png" width="240" alt="SAFARI RUSH"></td>
-      <td>Monaco Grand Prix — tight hairpins and narrow street circuit</td>
+      <td>Circuit de Monaco — tight hairpins and narrow street circuit</td>
       <td>African savanna</td>
     </tr>
     <tr>
       <td align="center">10</td>
       <td><strong>DESERT MIRAGE</strong></td>
       <td><img src="images/map-desert-mirage.png" width="240" alt="DESERT MIRAGE"></td>
-      <td>Bahrain International Circuit / Yas Marina Circuit (Abu Dhabi F1)</td>
+      <td>Bahrain International Circuit / Yas Marina Circuit</td>
       <td>Arabian desert</td>
     </tr>
     <tr>
       <td align="center">11</td>
       <td><strong>COPACABANA CRUNCH</strong></td>
       <td><img src="images/map-copacabana-crunch.png" width="240" alt="COPACABANA CRUNCH"></td>
-      <td>Autódromo José Carlos Pace (Interlagos), São Paulo — Brazil F1</td>
+      <td>Autódromo José Carlos Pace (Interlagos), São Paulo</td>
       <td>Brazilian carnival</td>
     </tr>
     <tr>
@@ -144,7 +163,7 @@ Open `index.html` in a browser.
       <td align="center">16</td>
       <td><strong>LOOSE SLOPS</strong></td>
       <td><img src="images/map-loose-slops.png" width="240" alt="LOOSE SLOPS"></td>
-      <td>Las Vegas Strip Circuit (F1, 2023) — 90° street corners and inner chicane</td>
+      <td>Las Vegas Strip Circuit — 90° street corners and inner chicane</td>
       <td>Casino / Las Vegas</td>
     </tr>
     <tr>
@@ -158,7 +177,7 @@ Open `index.html` in a browser.
       <td align="center">18</td>
       <td><strong>EL GRANDE LOOP</strong></td>
       <td><img src="images/map-el-grande-loop.png" width="240" alt="EL GRANDE LOOP"></td>
-      <td>Autódromo Hermanos Rodríguez, Mexico City Grand Prix</td>
+      <td>Autódromo Hermanos Rodríguez, Mexico City</td>
       <td>Mexico — Day of the Dead and Mariachi</td>
     </tr>
     <tr>
@@ -179,7 +198,7 @@ Open `index.html` in a browser.
       <td align="center">21</td>
       <td><strong>JUNGLE JAMBOREE</strong></td>
       <td><img src="images/map-jungle-jamboree.png" width="240" alt="JUNGLE JAMBOREE"></td>
-      <td>Sepang International Circuit (Malaysia F1) / Singapore Street Circuit</td>
+      <td>Sepang International Circuit / Singapore Street Circuit</td>
       <td>Tropical jungle with monkeys and hanging vines</td>
     </tr>
     <tr>
@@ -201,13 +220,66 @@ Open `index.html` in a browser.
 
 <!-- MAPS_END -->
 
-## LICENSE
+## What is derived and what is new
 
-MIT.
+### Derived from `leereilly/micro-machines` (MIT)
 
-Files in the `players/` directory are copyrighted by their respective owners and are included here for reference/attribution purposes only. All rights remain with their respective copyright holders. 
+Effectively the whole engine, unchanged or lightly extended: the vehicle
+physics, the AI opponents and their rubber-banding, the Catmull-Rom track
+generator, the colour-mask collision system, pickups and nitro, the terrain
+multipliers, the tunnel and ramp mechanics, the menus and race scenes, and 22
+of the 23 tracks. Copyright remains with Lee Reilly and the upstream
+contributors under the MIT licence in [`LICENSE`](LICENSE).
+
+### New in this project
+
+| Change | Why |
+|---|---|
+| The four drivers — OSO, GATA, CIBELES, MADROÑO — drawn procedurally from primitive shapes at boot (`BootScene.genDrivers`) | Replaces the upstream `players/` art, which was **not** MIT-licensed (see below) |
+| Deleted the whole `players/` directory (8 PNGs) | Same reason — the project now ships no character art files at all |
+| Replaced the Octocat sticker on the DESK CHAOS laptop with an original "KM 0" road-marker sticker | Removes a third-party trademark from the artwork |
+| Renamed the product, page title and on-screen title | See [Naming and trademarks](#naming-and-trademarks) |
+| Added [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) | Upstream had no `LICENSE` file — only a line in its README |
+
+### Removed, and why
+
+Upstream carried an explicit carve-out from its own MIT grant:
+
+> Files in the `players/` directory are copyrighted by their respective owners
+> and are included here for reference/attribution purposes only.
+
+Those eight files were the AI rivals' faces and cars. Copilot, Hubot and Mona
+are GitHub mascots and were never redistributable under MIT. They have been
+deleted, not re-licensed. **Every file in this repository is now covered by
+`LICENSE`, with no carve-out.**
+
+## Naming and trademarks
+
+This project is unaffiliated with, and not endorsed by, any rights holder
+named here.
+
+- **"Micro Machines"** is a trademark of Codemasters / Hasbro. It appears in
+  this repository only to identify the upstream project we derive from, which
+  MIT attribution requires.
+- **"MADRING"** is a trademark of the Gran Premio de Madrid. It is used only as
+  an internal identifier in the source (the track object's `name` field). To
+  players and on this page the circuit is described as a *layout inspired by
+  the IFEMA-Valdebebas street course*.
+- **"Formula 1" / "F1" / "Grand Prix"** are trademarks of Formula One
+  Licensing BV and are not used in this project's naming or track dressing.
+- **"GitHub", "Octocat", "Copilot", "Hubot", "Mona"** are trademarks of
+  GitHub, Inc.; all associated artwork has been removed.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE), which covers both the upstream work and the
+additions made here. [`NOTICE`](NOTICE) records the provenance in detail.
 
 ## Credits
 
-- **Kenney** — game assets ([Racing Pack](https://kenney.nl/assets/racing-pack))
+- **Lee Reilly and contributors** — the original
+  [micro-machines](https://github.com/leereilly/micro-machines) engine (MIT)
+- **Kenney** — vehicle art reference
+  ([Racing Pack](https://kenney.nl/assets/racing-pack), CC0)
 - **MFCC** — music ([Pixabay](https://pixabay.com/users/28627740/))
+- **Phaser 3** — game framework (MIT)

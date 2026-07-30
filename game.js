@@ -1,6 +1,7 @@
 // ============================================================
-// MICRO MACHINES — Web Recreation
-// Built with Phaser 3 · Procedural tracks + Kenney vehicle sprites
+// KILÓMETRO CERO — top-down arcade racer
+// Derivative work of leereilly/micro-machines (MIT). See NOTICE.
+// Built with Phaser 3 · Procedural tracks and driver art
 // ============================================================
 
 // ── CONSTANTS ───────────────────────────────────────────────
@@ -22,11 +23,17 @@ const C = {
     mud: 0x5a4830, hud: 0x111111, money: 0xFFD700, nitro: 0xff4400,
 };
 
-const NAMES = ['COPILOT', 'FRANK', 'HUBOT', 'MONA'];
-const CHAR_COLORS = [0x7b5ea7, 0xf0c020, 0xe08a1e, 0xe88acc];
+// ── DRIVERS ─────────────────────────────────────────────────
+// Original cast, Madrid-themed. The bear and the strawberry tree are the
+// city's coat of arms; a "gata" is a Madrid native of several generations;
+// Cibeles is the city's landmark fountain. All four avatars and car sprites
+// are drawn procedurally from simple shapes at boot (see genDrivers) — the
+// project ships no third-party character art.
+const NAMES = ['OSO', 'GATA', 'CIBELES', 'MADROÑO'];
+const CHAR_COLORS = [0xd8892c, 0x4f8fe0, 0x46c2a8, 0xd8452f];
 const TCOLORS = [C.player, C.ai1, C.ai2, C.ai3];
-const PLAYER_IMGS = ['avatar_copilot', 'avatar_frank', 'avatar_hubot', 'avatar_mona'];
-const CAR_SPRITES = ['car_copilot', 'car_frank', 'car_hubot', 'car_mona'];
+const PLAYER_IMGS = ['avatar_oso', 'avatar_gata', 'avatar_cibeles', 'avatar_madrono'];
+const CAR_SPRITES = ['car_oso', 'car_gata', 'car_cibeles', 'car_madrono'];
 const TKEYS = ['player', 'ai1', 'ai2', 'ai3'];
 const PRIZES = [100000, 90000, 80000, 70000];
 
@@ -67,10 +74,10 @@ const TEN_H = SW_H * 3;  // 4608
 const TEN_SCALE = 2;
 
 const TRUCK_SPRITES = {
-    player: 'car_copilot',
-    ai1: 'car_frank',
-    ai2: 'car_hubot',
-    ai3: 'car_mona',
+    player: 'car_oso',
+    ai1: 'car_gata',
+    ai2: 'car_cibeles',
+    ai3: 'car_madrono',
 };
 
 const UPGRADES = [
@@ -542,49 +549,40 @@ function drawDeskTrack(vx, t, wp, srand) {
     vx.fillStyle = '#8a8a90';
     vx.fillRect(d.laptop.x - d.laptop.w / 2, d.laptop.y + d.laptop.h / 2 - 24, d.laptop.w, 8);
 
-    // GitHub Octocat sticker on laptop lid
-    (function drawOctocat() {
+    // "KM 0" road-marker sticker on the laptop lid — the milestone that all
+    // Spanish radial roads are measured from, and this project's namesake.
+    (function drawKmZeroSticker() {
         const ox = d.laptop.x + d.laptop.w * 0.22, oy = d.laptop.y - d.laptop.h * 0.15;
         const R = 180;
-        // sticker backing (round white)
-        vx.fillStyle = '#fff';
+        // sticker backing (round, off-white)
+        vx.fillStyle = '#f4f1e8';
         vx.beginPath(); vx.arc(ox, oy, R + 14, 0, Math.PI * 2); vx.fill();
         vx.strokeStyle = 'rgba(0,0,0,0.2)'; vx.lineWidth = 3;
         vx.beginPath(); vx.arc(ox, oy, R + 14, 0, Math.PI * 2); vx.stroke();
-        // octocat silhouette
-        vx.fillStyle = '#24292e';
-        // head
-        vx.beginPath(); vx.arc(ox, oy - 10, R * 0.65, 0, Math.PI * 2); vx.fill();
-        // ears
-        vx.beginPath();
-        vx.moveTo(ox - R * 0.55, oy - R * 0.45);
-        vx.lineTo(ox - R * 0.25, oy - R * 0.85);
-        vx.lineTo(ox - R * 0.15, oy - R * 0.5);
-        vx.closePath(); vx.fill();
-        vx.beginPath();
-        vx.moveTo(ox + R * 0.55, oy - R * 0.45);
-        vx.lineTo(ox + R * 0.25, oy - R * 0.85);
-        vx.lineTo(ox + R * 0.15, oy - R * 0.5);
-        vx.closePath(); vx.fill();
-        // tentacles (three drooping below)
-        for (let i = -1; i <= 1; i++) {
+        // stone slab
+        vx.fillStyle = '#3a3f47';
+        vx.fillRect(ox - R * 0.78, oy - R * 0.78, R * 1.56, R * 1.56);
+        vx.strokeStyle = '#c8a34a'; vx.lineWidth = 8;
+        vx.strokeRect(ox - R * 0.64, oy - R * 0.64, R * 1.28, R * 1.28);
+        // six radial roads fanning out from the centre point
+        vx.strokeStyle = '#c8a34a'; vx.lineWidth = 6; vx.lineCap = 'round';
+        for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
             vx.beginPath();
-            vx.moveTo(ox + i * R * 0.3, oy + R * 0.2);
-            vx.quadraticCurveTo(ox + i * R * 0.5, oy + R * 0.9, ox + i * R * 0.2, oy + R * 1.1);
-            vx.quadraticCurveTo(ox + i * R * 0.4, oy + R * 0.9, ox + i * R * 0.5, oy + R * 0.3);
-            vx.closePath(); vx.fill();
+            vx.moveTo(ox + Math.cos(a) * R * 0.16, oy + Math.sin(a) * R * 0.16);
+            vx.lineTo(ox + Math.cos(a) * R * 0.56, oy + Math.sin(a) * R * 0.56);
+            vx.stroke();
         }
-        // eyes
-        vx.fillStyle = '#fff';
-        vx.beginPath(); vx.arc(ox - R * 0.22, oy - 20, 16, 0, Math.PI * 2); vx.fill();
-        vx.beginPath(); vx.arc(ox + R * 0.22, oy - 20, 16, 0, Math.PI * 2); vx.fill();
-        vx.fillStyle = '#24292e';
-        vx.beginPath(); vx.arc(ox - R * 0.22 + 4, oy - 18, 6, 0, Math.PI * 2); vx.fill();
-        vx.beginPath(); vx.arc(ox + R * 0.22 + 4, oy - 18, 6, 0, Math.PI * 2); vx.fill();
+        // centre disc
+        vx.fillStyle = '#c8a34a';
+        vx.beginPath(); vx.arc(ox, oy, R * 0.2, 0, Math.PI * 2); vx.fill();
+        vx.fillStyle = '#3a3f47';
+        vx.font = 'bold 40px monospace'; vx.textAlign = 'center'; vx.textBaseline = 'middle';
+        vx.fillText('0', ox, oy + 2);
         // sticker caption
-        vx.fillStyle = '#24292e';
+        vx.fillStyle = '#3a3f47';
         vx.font = 'bold 30px monospace'; vx.textAlign = 'center'; vx.textBaseline = 'middle';
-        vx.fillText('GitHub', ox, oy + R + 40);
+        vx.fillText('KM 0', ox, oy + R + 40);
     })();
 
     // ── KEYBOARD ──
@@ -1125,18 +1123,12 @@ class BootScene extends Phaser.Scene {
             console.warn('Asset load failed:', file.key, file.src || 'unknown source');
         });
 
-        this.load.image(TRUCK_SPRITES.player, 'players/car_copilot.png');
-        this.load.image(TRUCK_SPRITES.ai1, 'players/car_frank.png');
-        this.load.image(TRUCK_SPRITES.ai2, 'players/car_hubot.png');
-        this.load.image(TRUCK_SPRITES.ai3, 'players/car_mona.png');
-
-        this.load.image('avatar_copilot', 'players/copilot.png');
-        this.load.image('avatar_frank', 'players/frank.png');
-        this.load.image('avatar_hubot', 'players/hubot.png');
-        this.load.image('avatar_mona', 'players/mona.png');
+        // No character art is loaded from disk — the four drivers' avatars and
+        // car sprites are generated from simple shapes in genDrivers().
     }
 
     create() {
+        this.genDrivers();
         this.genTrucks();
         this.genPickups();
         this._updateBar(0.4);
@@ -1149,6 +1141,210 @@ class BootScene extends Phaser.Scene {
             // downloads start now rather than blocking the first race transition.
             TRACK_MUSIC.slice(0, 2).forEach(url => fetch(url).catch(() => {}));
             this.time.delayedCall(300, () => this.scene.start('MainMenuScene'));
+        });
+    }
+
+    // ── DRIVERS (original art, generated from simple shapes) ─────────────
+    // Builds the four car sprites (car_*) and the four portrait avatars
+    // (avatar_*). Nothing here is loaded from disk, so the project carries no
+    // third-party character art. Cars are drawn nose-up because syncSprite()
+    // adds +90° to any texture whose key starts with "car_".
+    genDrivers() {
+        const roundRect = (ctx, x, y, w, h, r) => {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y,     x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x,     y + h, r);
+            ctx.arcTo(x,     y + h, x,     y,     r);
+            ctx.arcTo(x,     y,     x + w, y,     r);
+            ctx.closePath();
+        };
+        const shade = (col, f) => {
+            const r = Math.min(255, ((col >> 16) & 0xff) * f) | 0;
+            const g = Math.min(255, ((col >> 8) & 0xff) * f) | 0;
+            const b = Math.min(255, (col & 0xff) * f) | 0;
+            return `rgb(${r},${g},${b})`;
+        };
+
+        // ── car sprites: 72×132, nose pointing up ──
+        CHAR_COLORS.forEach((col, i) => {
+            const cv = document.createElement('canvas');
+            cv.width = 72; cv.height = 132;
+            const ctx = cv.getContext('2d');
+            const cx = 36;
+
+            // tyres first, so the body overlaps their inner edge
+            ctx.fillStyle = '#1b1b1f';
+            [[6, 24], [50, 24], [6, 88], [50, 88]].forEach(([wx, wy]) => {
+                roundRect(ctx, wx, wy, 16, 24, 5); ctx.fill();
+            });
+
+            // body: tapered nose, square tail
+            ctx.fillStyle = shade(col, 1.0);
+            ctx.beginPath();
+            ctx.moveTo(cx, 4);
+            ctx.quadraticCurveTo(60, 16, 60, 42);
+            ctx.lineTo(60, 118);
+            ctx.quadraticCurveTo(60, 126, 52, 126);
+            ctx.lineTo(20, 126);
+            ctx.quadraticCurveTo(12, 126, 12, 118);
+            ctx.lineTo(12, 42);
+            ctx.quadraticCurveTo(12, 16, cx, 4);
+            ctx.closePath(); ctx.fill();
+
+            // darker flanks for a bit of top-down volume
+            ctx.fillStyle = shade(col, 0.72);
+            ctx.fillRect(12, 42, 5, 76);
+            ctx.fillRect(55, 42, 5, 76);
+
+            // windscreen + rear window
+            ctx.fillStyle = '#20242e';
+            ctx.beginPath();
+            ctx.moveTo(22, 52); ctx.lineTo(50, 52);
+            ctx.lineTo(46, 34); ctx.lineTo(26, 34);
+            ctx.closePath(); ctx.fill();
+            ctx.fillRect(23, 88, 26, 14);
+
+            // roof panel + centre stripe
+            ctx.fillStyle = shade(col, 1.25);
+            ctx.fillRect(23, 56, 26, 30);
+            ctx.fillStyle = shade(col, 0.55);
+            ctx.fillRect(34, 56, 4, 30);
+
+            // headlights and tail lights
+            ctx.fillStyle = '#fff6d0';
+            ctx.fillRect(18, 14, 10, 6); ctx.fillRect(44, 14, 10, 6);
+            ctx.fillStyle = '#c8341f';
+            ctx.fillRect(16, 118, 12, 5); ctx.fillRect(44, 118, 12, 5);
+
+            // rear wing
+            ctx.fillStyle = shade(col, 0.45);
+            roundRect(ctx, 8, 108, 56, 8, 3); ctx.fill();
+
+            this.textures.addCanvas(CAR_SPRITES[i], cv);
+        });
+
+        // ── portrait avatars: 128×128 badge + emblem ──
+        const emblems = [
+            // OSO — the bear of Madrid's coat of arms
+            (ctx) => {
+                ctx.fillStyle = '#7a4f22';
+                ctx.beginPath(); ctx.arc(46, 44, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(82, 44, 15, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#9c6a31';
+                ctx.beginPath(); ctx.arc(64, 68, 34, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#d3a76b';
+                ctx.beginPath(); ctx.ellipse(64, 82, 18, 13, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2a1a0c';
+                ctx.beginPath(); ctx.arc(53, 62, 4.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(75, 62, 4.5, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(64, 76, 6, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+            },
+            // GATA — the Madrid native, as a cat
+            (ctx) => {
+                ctx.fillStyle = '#6f7a88';
+                [[-1, 0], [1, 0]].forEach(([s]) => {
+                    ctx.beginPath();
+                    ctx.moveTo(64 + s * 34, 44); ctx.lineTo(64 + s * 20, 16); ctx.lineTo(64 + s * 12, 46);
+                    ctx.closePath(); ctx.fill();
+                });
+                ctx.fillStyle = '#8d99a8';
+                ctx.beginPath(); ctx.arc(64, 66, 36, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2b3340';
+                ctx.beginPath(); ctx.ellipse(51, 60, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(77, 60, 5, 7, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#e07a9c';
+                ctx.beginPath();
+                ctx.moveTo(58, 76); ctx.lineTo(70, 76); ctx.lineTo(64, 83);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = '#2b3340'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+                [-1, 1].forEach(s => {
+                    [[-6, 0], [0, 5], [6, 10]].forEach(([dy, dy2]) => {
+                        ctx.beginPath();
+                        ctx.moveTo(64 + s * 12, 80 + dy);
+                        ctx.lineTo(64 + s * 40, 76 + dy2);
+                        ctx.stroke();
+                    });
+                });
+            },
+            // CIBELES — the fountain: stepped basin, plinth, crowned figure
+            (ctx) => {
+                // water jets arcing out of the plinth, behind everything
+                ctx.strokeStyle = 'rgba(226,252,247,0.85)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+                [-1, 1].forEach(s => {
+                    ctx.beginPath();
+                    ctx.moveTo(64 + s * 14, 66);
+                    ctx.quadraticCurveTo(64 + s * 44, 62, 64 + s * 40, 92);
+                    ctx.stroke();
+                });
+                // two-tier basin
+                ctx.fillStyle = '#2f8877';
+                ctx.beginPath(); ctx.ellipse(64, 106, 48, 15, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#6fd8bd';
+                ctx.beginPath(); ctx.ellipse(64, 102, 48, 13, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2f8877';
+                ctx.beginPath(); ctx.ellipse(64, 94, 30, 10, 0, 0, Math.PI * 2); ctx.fill();
+                // plinth
+                ctx.fillStyle = '#e8f6f1';
+                ctx.fillRect(50, 66, 28, 30);
+                ctx.fillStyle = '#b9d8d0';
+                ctx.fillRect(50, 66, 8, 30);
+                // seated figure: torso + head
+                ctx.fillStyle = '#f4fbf8';
+                ctx.beginPath();
+                ctx.moveTo(52, 66); ctx.lineTo(76, 66); ctx.lineTo(70, 44); ctx.lineTo(58, 44);
+                ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.arc(64, 38, 12, 0, Math.PI * 2); ctx.fill();
+                // three-point crown
+                ctx.fillStyle = '#f2c14e';
+                [-11, 0, 11].forEach((dx, i) => {
+                    const h = i === 1 ? 18 : 12;
+                    ctx.beginPath();
+                    ctx.moveTo(64 + dx - 5, 30); ctx.lineTo(64 + dx, 30 - h); ctx.lineTo(64 + dx + 5, 30);
+                    ctx.closePath(); ctx.fill();
+                });
+                ctx.fillStyle = '#f2c14e';
+                ctx.fillRect(50, 28, 28, 5);
+            },
+            // MADROÑO — the strawberry tree of the coat of arms
+            (ctx) => {
+                ctx.fillStyle = '#6b4626';
+                ctx.fillRect(58, 74, 12, 34);
+                ctx.beginPath();
+                ctx.moveTo(58, 86); ctx.lineTo(40, 70); ctx.lineTo(58, 78); ctx.closePath(); ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(70, 86); ctx.lineTo(88, 70); ctx.lineTo(70, 78); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#3f7a33';
+                [[64, 42, 30], [40, 60, 20], [88, 60, 20]].forEach(([x, y, r]) => {
+                    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+                });
+                ctx.fillStyle = '#54994a';
+                ctx.beginPath(); ctx.arc(58, 38, 16, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#d8452f';
+                [[46, 52], [72, 34], [84, 58], [60, 62], [34, 64]].forEach(([x, y]) => {
+                    ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fill();
+                });
+            },
+        ];
+
+        emblems.forEach((draw, i) => {
+            const cv = document.createElement('canvas');
+            cv.width = cv.height = 128;
+            const ctx = cv.getContext('2d');
+            const col = CHAR_COLORS[i];
+
+            // badge: vertical gradient in the driver's colour
+            const g = ctx.createLinearGradient(0, 0, 0, 128);
+            g.addColorStop(0, shade(col, 1.15));
+            g.addColorStop(1, shade(col, 0.55));
+            ctx.fillStyle = g;
+            roundRect(ctx, 2, 2, 124, 124, 22); ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 4;
+            roundRect(ctx, 2, 2, 124, 124, 22); ctx.stroke();
+
+            draw(ctx);
+
+            this.textures.addCanvas(PLAYER_IMGS[i], cv);
         });
     }
 
@@ -2670,7 +2866,7 @@ class BootScene extends Phaser.Scene {
         const cx = GW / 2, cy = GH / 2;
         const barW = 480, barH = 20;
         this.add.rectangle(cx, cy, GW, GH, 0x000000);
-        this.add.text(cx, cy - 100, 'MICRO MACHINES', {
+        this.add.text(cx, cy - 100, 'KILÓMETRO CERO', {
             fontSize: '52px', fontFamily: 'monospace', color: '#FFD700',
             fontStyle: 'bold', stroke: '#6B3410', strokeThickness: 6,
         }).setOrigin(0.5);
@@ -2726,12 +2922,12 @@ class MainMenuScene extends Phaser.Scene {
         }
 
         // Title
-        this.add.text(GW / 2, 120, 'MICRO MACHINES', {
+        this.add.text(GW / 2, 120, 'KILÓMETRO CERO', {
             fontSize: '60px', fontFamily: 'monospace', color: '#FFD700',
             fontStyle: 'bold', stroke: '#6B3410', strokeThickness: 8,
         }).setOrigin(0.5);
 
-        this.add.text(GW / 2, 200, 'Web Recreation', {
+        this.add.text(GW / 2, 200, 'Carreras cenitales · Madrid', {
             fontSize: '22px', fontFamily: 'monospace', color: '#bbb',
         }).setOrigin(0.5);
 
@@ -2964,12 +3160,12 @@ class MainMenuScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         const lines = [
-            'Built for the GameDev.js Jam 2026',
-            'for the theme "Machines".',
+            'A top-down arcade racer whose headline',
+            'circuit is a layout inspired by the',
+            'IFEMA-Valdebebas street course in Madrid.',
             '',
-            'Inspired by the classic late \'80s and',
-            'early \'90s Micro Machines, and Ivan',
-            '"Ironman" Stewart\'s Super Off Road.',
+            'Derivative work of the open-source game',
+            'micro-machines by Lee Reilly (MIT).',
         ];
         let bodyY = 305;
         lines.forEach(line => {
@@ -2996,14 +3192,14 @@ class MainMenuScene extends Phaser.Scene {
 
         const sections = [
             {
-                header: 'GAME DESIGN & DEVELOPMENT',
+                header: 'ORIGINAL ENGINE — MIT',
                 entries: [
-                    { text: 'Lee Reilly',     color: '#fff' },
-                    { text: 'GitHub Copilot', color: '#7b5ea7' },
+                    { text: 'Lee Reilly — micro-machines',      color: '#fff' },
+                    { text: 'github.com/leereilly/micro-machines', color: '#888', small: true },
                 ],
             },
             {
-                header: 'GAME ASSETS',
+                header: 'GAME ASSETS — CC0',
                 entries: [
                     { text: 'Kenney — Racing Pack',         color: '#fff' },
                     { text: 'kenney.nl/assets/racing-pack', color: '#888', small: true },
@@ -3083,12 +3279,12 @@ class TitleScene extends Phaser.Scene {
             }
         }
 
-        this.add.text(GW / 2, 150, 'MICRO MACHINES', {
+        this.add.text(GW / 2, 150, 'KILÓMETRO CERO', {
             fontSize: '60px', fontFamily: 'monospace', color: '#FFD700',
             fontStyle: 'bold', stroke: '#6B3410', strokeThickness: 8,
         }).setOrigin(0.5);
 
-        this.add.text(GW / 2, 225, 'Web Recreation', {
+        this.add.text(GW / 2, 225, 'Carreras cenitales · Madrid', {
             fontSize: '22px', fontFamily: 'monospace', color: '#bbb',
         }).setOrigin(0.5);
 

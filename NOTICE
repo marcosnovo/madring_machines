@@ -1,0 +1,106 @@
+Kilómetro Cero
+==============
+
+This project is a derivative work. This NOTICE records what was inherited,
+what was added, and what was removed.
+
+
+1. UPSTREAM WORK
+----------------
+
+Kilómetro Cero is derived from:
+
+    micro-machines
+    Copyright (c) Lee Reilly and contributors
+    https://github.com/leereilly/micro-machines
+    Licensed under the MIT License
+
+Everything in this repository that is not listed in section 3 below descends
+from that project — in particular the Phaser 3 game engine layer: the vehicle
+physics, the AI opponents, the Catmull-Rom track generator, the colour-mask
+collision system, the pickup and nitro systems, the terrain multipliers, the
+tunnel and ramp mechanics, the menu and race scenes, and 22 of the 23 tracks.
+
+The upstream MIT licence text is reproduced in full in LICENSE and continues to
+govern this work.
+
+
+2. THIRD-PARTY ASSETS
+---------------------
+
+Vehicle art reference — Kenney, "Racing Pack"
+    https://kenney.nl/assets/racing-pack
+    Licensed CC0 1.0 Universal (public domain dedication).
+    No attribution is legally required; it is given here voluntarily.
+
+Music — MFCC, via Pixabay
+    https://pixabay.com/users/28627740/
+    Licensed under the Pixabay Content License.
+    All 21 .mp3 files under music/ are covered by this entry.
+
+Game framework — Phaser 3
+    https://phaser.io/
+    Copyright (c) Richard Davey / Phaser Studio Inc., MIT License.
+    Consumed as an npm dependency; not vendored in this repository.
+
+
+3. REMOVED FROM THE UPSTREAM WORK
+---------------------------------
+
+The upstream repository carried this carve-out in its README:
+
+    "Files in the players/ directory are copyrighted by their respective
+     owners and are included here for reference/attribution purposes only.
+     All rights remain with their respective copyright holders."
+
+Those files were the faces of the four AI rivals. Copilot, Hubot and Mona are
+GitHub mascots; the artwork was not licensed for redistribution under MIT.
+
+The entire players/ directory has therefore been deleted from this project:
+
+    players/copilot.png       players/car_copilot.png
+    players/frank.png         players/car_frank.png
+    players/hubot.png         players/car_hubot.png
+    players/mona.png          players/car_mona.png
+
+Also removed: the GitHub Octocat sticker that the DESK CHAOS track drew
+procedurally onto its laptop lid (game.js), replaced with an original "KM 0"
+road-marker sticker.
+
+No file in this repository is covered by a copyright carve-out. Everything
+here is redistributable under the MIT License in LICENSE.
+
+
+4. ADDED BY THIS PROJECT
+------------------------
+
+Original work by the Kilómetro Cero contributors, MIT licensed:
+
+  - The four drivers — OSO, GATA, CIBELES and MADROÑO — including their
+    portrait avatars and car sprites. These are not image files: they are
+    drawn from primitive shapes at runtime in BootScene.genDrivers()
+    (game.js), so the project ships no character art at all.
+  - The "KM 0" sticker described in section 3.
+  - The MADRING track layout, its scenery, and the `banking` terrain type.
+    See README.md for what is derived from published circuit data and what
+    is our own approximation.
+
+
+5. TRADEMARK NOTICE
+-------------------
+
+This project is unaffiliated with, and not endorsed by, any of the following.
+No trademark of any of them is used as, or as part of, the name of this
+project, its page title, or its branding.
+
+  - "Micro Machines" is a trademark of Codemasters / Hasbro. It names the
+    upstream open-source repository this work derives from, and is used here
+    only to identify that repository, as MIT attribution requires.
+  - "MADRING" is a trademark of the Gran Premio de Madrid. It appears in this
+    codebase only as an internal identifier for the track's data structure.
+    The circuit is described to players as a layout inspired by the
+    IFEMA-Valdebebas street course.
+  - "Formula 1", "F1" and "Grand Prix" are trademarks of Formula One Licensing
+    BV. They are not used in this project's names, artwork or track dressing.
+  - "GitHub", "Octocat", "Copilot", "Hubot" and "Mona" are trademarks of
+    GitHub, Inc. See section 3 — all associated artwork has been removed.
