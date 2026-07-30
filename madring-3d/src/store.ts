@@ -30,9 +30,9 @@ export const maxBoost = 100 as const
  *   0-300 km/h           12.33 s            8.38 s
  *   200-0 km/h       4.13 s / 119 m    2.93 s / 95 m
  *   full-lock radius @120 km/h   39 m             22 m
- *                      @200 km/h  116 m             59 m
- *                      @280 km/h  229 m            108 m
- *   scripted lap driver, 150 s   5974 m           7760 m   (143 -> 185 km/h)
+ *                      @200 km/h  116 m             62 m
+ *                      @280 km/h  229 m            118 m
+ *   scripted lap driver, 150 s   5974 m           7516 m   (143 -> 180 km/h)
  *
  * The counter-intuitive one is `steerSpeedFalloff`. Bleeding the steering lock
  * off with speed makes the car turn *harder* at 280 km/h, not softer: at full
@@ -121,10 +121,10 @@ export const booleans = {
 type Booleans = keyof typeof booleans
 
 const exclusiveBooleans = ['help', 'leaderboard', 'pickcolor'] as const
-type ExclusiveBoolean = typeof exclusiveBooleans[number]
+type ExclusiveBoolean = (typeof exclusiveBooleans)[number]
 const isExclusiveBoolean = (v: unknown): v is ExclusiveBoolean => exclusiveBooleans.includes(v as ExclusiveBoolean)
 
-export type Camera = typeof cameras[number]
+export type Camera = (typeof cameras)[number]
 
 const controls = {
   backward: false,
@@ -248,9 +248,7 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
       set((state) => {
         const layout = getLayout()
         const body = state.chassisBody.current
-        const index = body
-          ? nearestIndex(layout, body.matrixWorld.elements[12], body.matrixWorld.elements[14])
-          : layout.gridIndex
+        const index = body ? nearestIndex(layout, body.matrixWorld.elements[12], body.matrixWorld.elements[14]) : layout.gridIndex
         const { position, rotation } = poseAt(layout, index)
 
         state.api?.velocity.set(0, 0, 0)

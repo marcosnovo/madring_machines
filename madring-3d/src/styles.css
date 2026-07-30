@@ -369,6 +369,11 @@ button {
   justify-content: space-around;
   align-items: center;
   color: #606060;
+  /* Above the attribution footer. In a short window the footer's text box
+     overlaps the middle of the screen and was swallowing clicks on "Click to
+     start" — the licence credit has to stay, but it must not be a shield. */
+  position: relative;
+  z-index: 2;
 }
 
 .bg {
@@ -537,6 +542,7 @@ button {
 
 /* Replaces the upstream @pmndrs/branding footer — see ui/Intro.tsx. */
 .attribution {
+  z-index: 1;
   position: absolute;
   left: 40px;
   right: 40px;
@@ -550,4 +556,6 @@ button {
   text-decoration: none;
   border-bottom: 1px solid #3a3a3a;
 }
-.attribution a:hover { color: #ccc; }
+.attribution a:hover {
+  color: #ccc;
+}

@@ -25,10 +25,15 @@ which is itself a fork of:
 The upstream repository was cloned into this directory and its .git removed.
 Everything here that is not listed in section 4 descends from that project — in
 particular the React Three Fiber application shell: the @react-three/cannon
-raycast-vehicle physics and vehicle tuning, the chase/first-person/bird's-eye
-cameras, the dust, skid, boost and engine-audio effects, the zustand store and
-key bindings, and the whole HUD (clock, speedometer, help, colour picker,
-minimap, leaderboard).
+raycast-vehicle physics, the chase/first-person/bird's-eye cameras, the dust,
+skid, boost and engine-audio effects, the zustand store and key bindings, and
+the whole HUD (clock, speedometer, help, colour picker, minimap, leaderboard).
+
+The vehicle *tuning* and the chase camera's behaviour are no longer upstream's.
+Engine force, grip, suspension, steering lock and its speed sensitivity, the
+boost, the field of view and its animation with speed, and the camera's easing
+and distance were all re-tuned against a headless measuring rig; the structure
+is still theirs. README.md, "Making it arcade", records the before and after.
 
 The upstream MIT licence text is reproduced verbatim in LICENSE.md and continues
 to govern this work. The typo in its copyright line ("pmdrs") is upstream's; it
@@ -60,6 +65,11 @@ Circuit model — Dave Love SketchFab, "Circuito de Madring 2026 layout"
     walls, catch fencing, the pit building and pit lane, the grandstands (empty —
     the asset has no crowd), the start gantry and its LED boards, floodlights,
     trackside signage, parked vehicles, trees and the surrounding city.
+
+    The crowd that now fills those grandstands is NOT part of this asset and is
+    not derived from it as a work: src/models/track/Crowd.tsx reads the model's
+    grandstand geometry only to decide where to put spectators of its own
+    making. The geometry it reads is the author's; the people are ours.
 
     Shipped as public/models/circuit-draco.glb, which is not the file as
     distributed: scripts/build-circuit-model.mjs bakes in an alignment
@@ -214,6 +224,10 @@ Original work by the Kilómetro Cero contributors, MIT licensed:
   - src/models/track/Circuit.tsx, CircuitPhysics.tsx, Ground.tsx and
     LapTiming.tsx — the model renderer, the trimesh + wall collision, the catch
     plane, and sector/lap timing.
+  - src/models/track/Crowd.tsx — the crowd. Finds the seating surfaces in the
+    model's four grandstand materials (upward-facing triangles, filtered by
+    area and by headroom) and scatters ~6,000 instanced spectators over them,
+    two draw calls in total. The circuit model has none; see section 2.
   - src/models/Killzone.tsx — replaces upstream's six-plane BoundingBox, which
     was in permanent contact with everything inside it.
   - src/frame.ts — a frame-time clamp; several upstream smoothing terms diverge
