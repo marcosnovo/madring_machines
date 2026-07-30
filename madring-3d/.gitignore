@@ -31,3 +31,8 @@ yarn-error.log*
 # package-lock.json is committed: this app is vendored, installs must be reproducible
 
 .idea
+
+# The Sketchfab source model is 135 MB. Only its compressed output ships
+# (public/models/circuit-draco.glb, 8.8 MB). See NOTICE for where to get it and
+# `npm run build:assets` for how to turn one into the other.
+/assets/madring-sketchfab

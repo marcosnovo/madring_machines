@@ -21,7 +21,7 @@ import { useGLTF } from '@react-three/drei'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { DoubleSide, FrontSide } from 'three'
 
-import type { Group, Mesh, MeshStandardMaterial, Object3D } from 'three'
+import type { Mesh, MeshStandardMaterial, Object3D } from 'three'
 
 import { asset } from '../../assets'
 import { getLayout } from '../../circuit/layout'
@@ -30,8 +30,9 @@ import { levelLayer, useStore } from '../../store'
 
 export const CIRCUIT_MODEL = 'models/circuit-draco.glb'
 
-/** Cut-out foliage, crowd and chain-link: alpha tested, and visible from both
- *  sides because they are modelled as single-sided cards. */
+/** Cut-out foliage, grandstand railings and chain-link. Declared BLEND by the
+ *  source; alpha testing them instead avoids depth-sorting several hundred
+ *  thousand triangles. Double-sided because they are single-sided cards. */
 const CUTOUT = /^(Maple|Cypress|wire_fence|gstand-alpha|top)/
 /** The road surface itself. It does not cast shadows — it is flat on the
  *  ground and would only shadow-acne itself. */
@@ -83,7 +84,7 @@ export function Circuit(): JSX.Element {
       if (materials.has(material)) return
       materials.add(material)
       if (CUTOUT.test(name)) {
-        material.alphaTest = 0.5
+        material.alphaTest = 0.35
         material.transparent = false
         material.side = DoubleSide
         material.depthWrite = true
@@ -156,5 +157,3 @@ function MinimapRoad(): JSX.Element {
 }
 
 useGLTF.preload(asset(CIRCUIT_MODEL), DRACO_PATH)
-
-export type { Group }

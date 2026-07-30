@@ -4,3 +4,6 @@ node_modules/*
 public/*
 .log
 package.json
+
+src/circuit/road.ts
+src/circuit/fit.json

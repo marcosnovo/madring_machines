@@ -46,6 +46,34 @@ Vehicle model — Alexus16, "Classic Muscle car"
     and in the comment blocks at the top of src/models/vehicle/Chassis.tsx and
     src/models/vehicle/Wheel.tsx.
 
+Circuit model — Dave Love SketchFab, "Circuito de Madring 2026 layout"
+    https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
+    Licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+    Author must be credited. The credit line the licence asks for is:
+
+        This work is based on "Circuito de Madring 2026 layout"
+        (https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05)
+        by Dave Love SketchFab (https://sketchfab.com/Tyler_Dave) licensed under
+        CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+
+    It is the whole visible circuit: asphalt, kerbs, painted lines, tyre marks,
+    walls, catch fencing, the pit building and pit lane, the grandstands (empty —
+    the asset has no crowd), the start gantry and its LED boards, floodlights,
+    trackside signage, parked vehicles, trees and the surrounding city.
+
+    Shipped as public/models/circuit-draco.glb, which is not the file as
+    distributed: scripts/build-circuit-model.mjs bakes in an alignment
+    transform, drops the tangent and second UV attributes, welds vertices,
+    cuts the large meshes into 256 m tiles, re-encodes the textures as WebP and
+    Draco-compresses the geometry — 134.65 MB of source to 8.8 MB. No geometry
+    is added or removed. The unmodified source is expected in
+    assets/madring-sketchfab/ (scene.gltf, scene.bin, textures/, license.txt);
+    it is not committed to this repository because it is 135 MB, and it is not
+    redistributed by it. Download it from the URL above to rebuild.
+
+    The same attribution is repeated in the comment block at the top of
+    src/models/track/Circuit.tsx and on the game's own intro screen.
+
 Environment map — "Dikhololo Night"
     https://polyhaven.com/a/dikhololo_night
     Licensed CC0 1.0 Universal (public domain dedication).
@@ -171,15 +199,21 @@ directory now makes a network request.
 
 Original work by the Kilómetro Cero contributors, MIT licensed:
 
-  - src/circuit/ — the circuit generator. layout.ts turns the 64 derived
-    centreline control points into an evenly sampled 3D road (arc length, signed
-    curvature, elevation, banking, width, and an orthonormal road frame per
-    sample); geometry.ts sweeps that description into the asphalt, kerb, run-off,
-    barrier, tunnel and collision ribbons. What is derived from real data and
-    what is our approximation is set out in README.md.
+  - scripts/fit-circuit.mjs — aligns the circuit model to the projected geodata
+    (ICP on the model's TarmacDark mesh, trimmed least squares, rigid) and then
+    measures the road off the aligned model: the middle of the paved corridor,
+    both asphalt edges, the surface height and the cross-slope, 1024 times
+    around the lap. Writes src/circuit/fit.json and src/circuit/road.ts.
+  - scripts/build-circuit-model.mjs — the compression pipeline described in
+    section 2.
+  - src/circuit/ — layout.ts turns the generated road samples into arc length,
+    signed curvature and an orthonormal road frame per sample, and finds La
+    Monumental by curvature analysis; walls.ts places the invisible collision
+    boxes on the measured asphalt edges. What is derived from real data and what
+    is our approximation is set out in README.md.
   - src/models/track/Circuit.tsx, CircuitPhysics.tsx, Ground.tsx and
-    LapTiming.tsx — the renderer, the trimesh + barrier collision, the ground,
-    and sector/lap timing.
+    LapTiming.tsx — the model renderer, the trimesh + wall collision, the catch
+    plane, and sector/lap timing.
   - src/models/Killzone.tsx — replaces upstream's six-plane BoundingBox, which
     was in permanent contact with everything inside it.
   - src/frame.ts — a frame-time clamp; several upstream smoothing terms diverge

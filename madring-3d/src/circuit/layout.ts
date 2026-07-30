@@ -86,8 +86,6 @@ export interface Layout {
   ds: number
   /** The signature banked loop, found by curvature analysis. */
   monumental: Section & { radius: number; headingChange: number }
-  /** The straight that carries the start/finish line. */
-  mainStraight: Section
   /** Where the car is placed, a little before the line. */
   grid: Pose
   /** Sample index of the grid slot. */
@@ -201,33 +199,6 @@ function build(): Layout {
     headingChange: bestMean * windowSamples * ds,
   }
 
-  // --- straights, and the one carrying the start/finish line ---------------
-  const isStraight = (i: number) => Math.abs(k[wrap(i, n)]) < 1 / 600
-  const straights: Section[] = []
-  {
-    let runStart: number | null = null
-    for (let i = 0; i < n * 2; i++) {
-      if (isStraight(i)) {
-        if (runStart === null) runStart = i
-      } else if (runStart !== null) {
-        if (i - runStart < n) {
-          straights.push({
-            from: wrap(runStart, n),
-            to: wrap(i, n),
-            sFrom: wrap(runStart, n) * ds,
-            sTo: wrap(i, n) * ds,
-            length: (i - runStart) * ds,
-          })
-        }
-        runStart = null
-      }
-    }
-  }
-  straights.sort((a, b) => b.length - a.length)
-  const uniqueStraights = straights.filter((s, i) => straights.findIndex((o) => o.from === s.from) === i)
-  const contains = (sec: Section, i: number) => wrap(i - sec.from, n) <= wrap(sec.to - sec.from, n)
-  const mainStraight = uniqueStraights.find((s) => contains(s, 0)) ?? uniqueStraights[0]
-
   // --- assemble the road frames -------------------------------------------
   const up = new Vector3(0, 1, 0)
   const samples: Sample[] = []
@@ -263,7 +234,6 @@ function build(): Layout {
     lapLength: ROAD_LAP,
     ds,
     monumental,
-    mainStraight,
     startIndex: 0,
     gridIndex,
     grid: poseAt({ samples }, gridIndex),

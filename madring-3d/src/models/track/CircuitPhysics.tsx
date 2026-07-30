@@ -7,7 +7,7 @@
  *     static `Trimesh` bodies, one per tile the build script cut. This is what
  *     the wheels ride on, so the car drives on exactly the surface it is drawn
  *     on: every camber, kerb-height step, crest and dip in the model is felt.
- *     ~62k triangles in ~30 bodies, each with its own AABB and octree.
+ *     62,032 triangles in 25 bodies, each with its own AABB and octree.
  *
  *   * THE WALLS — generated boxes just outside the measured edge of the
  *     asphalt (see ../../circuit/walls). Static compound bodies, 24 of them,
@@ -15,7 +15,7 @@
  *
  * Everything else in the model is decoration and has no collision at all:
  * grandstands, the pit building, the city, floodlights, signage, trees, the
- * crowd, the parked vans, the fences. Two reasons. The honest one is that
+ * parked vans, the fences. Two reasons. The honest one is that
  * cannon-es implements sphere-trimesh and plane-trimesh narrowphase only —
  * there is no convex/box-vs-trimesh — so a trimesh can be driven on but never
  * driven into, and giving 1.6 M triangles of scenery collision would achieve

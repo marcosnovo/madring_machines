@@ -31,11 +31,32 @@
  *    grid slot and the invisible walls, so all of them sit on the model's
  *    asphalt rather than near it.
  *
- * Run with `npm run build:fit`. Takes a couple of minutes.
+ * It also writes docs/fit-plan.png, a plan view of all of that, so the result
+ * can be checked by eye.
+ *
+ * Run with `npm run build:fit`; the ICP takes a couple of minutes. Pass
+ * `--road-only` to reuse the transform already in fit.json and re-measure the
+ * road in under a second, which is what you want while tuning the scan.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+const CRC_TABLE = (() => {
+  const t = new Int32Array(256)
+  for (let n = 0; n < 256; n++) {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    t[n] = c
+  }
+  return t
+})()
+const crc32 = (buf) => {
+  let c = -1
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8)
+  return c ^ -1
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
@@ -114,10 +135,7 @@ const world = /MADRING_WORLD = \{ W: (\d+), H: (\d+), scale: ([\d.]+)/.exec(cent
 const W = +world[1]
 const H = +world[2]
 const PX_PER_M = +world[3]
-const CP = [...centrelineSrc.matchAll(/\{\s*x:\s*(-?\d+),\s*y:\s*(-?\d+)\s*\}/g)].map((m) => [
-  (+m[1] - W / 2) / PX_PER_M,
-  (+m[2] - H / 2) / PX_PER_M,
-])
+const CP = [...centrelineSrc.matchAll(/\{\s*x:\s*(-?\d+),\s*y:\s*(-?\d+)\s*\}/g)].map((m) => [(+m[1] - W / 2) / PX_PER_M, (+m[2] - H / 2) / PX_PER_M])
 if (CP.length !== 64) throw new Error(`expected 64 control points, got ${CP.length}`)
 
 /** Closed centripetal Catmull-Rom, the same curve src/circuit/layout.ts builds. */
@@ -359,11 +377,7 @@ console.log(`fitted offset     tx ${TX.toFixed(3)} m   tz ${TZ.toFixed(3)} m`)
 const COS = Math.cos(THETA)
 const SIN = Math.sin(THETA)
 /** model frame (Y-up, metric) -> world */
-const toWorld = (mx, my, mz) => [
-  (mirror ? -mx : mx) * COS - mz * SIN + TX,
-  my,
-  (mirror ? -mx : mx) * SIN + mz * COS + TZ,
-]
+const toWorld = (mx, my, mz) => [(mirror ? -mx : mx) * COS - mz * SIN + TX, my, (mirror ? -mx : mx) * SIN + mz * COS + TZ]
 
 const residuals = []
 for (let i = 0; i < VERTS; i++) {
@@ -706,6 +720,34 @@ const banks = measured.map((s, i) => {
 const bank = smoothClosed(banks, 6)
 
 // ---------------------------------------------------------------------------
+// coverage check: is there asphalt everywhere the car can legally be?
+// ---------------------------------------------------------------------------
+// The walls stand on edgeL/edgeR, and cannon's drive surface is this same
+// TarmacDark mesh, so any hole inside those edges is somewhere the car falls
+// through the world. Sample a lateral line at every sample and count.
+{
+  let holes = 0
+  let cells = 0
+  for (let i = 0; i < SAMPLES; i++) {
+    const a = road[(i - 1 + SAMPLES) % SAMPLES]
+    const b = road[(i + 1) % SAMPLES]
+    const tx = b[0] - a[0]
+    const tz = b[1] - a[1]
+    const tl = Math.hypot(tx, tz) || 1
+    const rx = -tz / tl
+    const rz = tx / tl
+    const s = measured[i]
+    const l = Number.isNaN(s.edgeL) ? HALF_MIN : s.edgeL
+    const r = Number.isNaN(s.edgeR) ? HALF_MIN : s.edgeR
+    for (let d = -l + 0.5; d <= r - 0.5; d += 1) {
+      cells++
+      if (Number.isNaN(occupied(s.x + rx * d, s.z + rz * d))) holes++
+    }
+  }
+  console.log(`drivable coverage ${(((cells - holes) / cells) * 100).toFixed(2)}% of ${cells} sampled square metres between the walls`)
+}
+
+// ---------------------------------------------------------------------------
 // where the start/finish line is: the model draws one, so use it
 // ---------------------------------------------------------------------------
 // The gantry over the start line is its own material. Its centroid, projected
@@ -742,7 +784,9 @@ if (gantry.length) {
 const elevation = { min: Math.min(...ys), max: Math.max(...ys) }
 console.log(`measured lap      ${lap.toFixed(1)} m`)
 console.log(`measured width    ${(2 * Math.min(...halves)).toFixed(1)} - ${(2 * Math.max(...halves)).toFixed(1)} m`)
-console.log(`paved corridor    ${(Math.min(...edgesL) + Math.min(...edgesR)).toFixed(1)} - ${(Math.max(...edgesL) + Math.max(...edgesR)).toFixed(1)} m edge to edge`)
+console.log(
+  `paved corridor    ${(Math.min(...edgesL) + Math.min(...edgesR)).toFixed(1)} - ${(Math.max(...edgesL) + Math.max(...edgesR)).toFixed(1)} m edge to edge`,
+)
 console.log(`measured elevation ${elevation.min.toFixed(1)} .. ${elevation.max.toFixed(1)} m  (range ${(elevation.max - elevation.min).toFixed(1)} m)`)
 console.log(`measured bank     max ${((Math.max(...bank.map(Math.abs)) * 180) / Math.PI).toFixed(1)} deg`)
 
@@ -809,3 +853,79 @@ ${body}
 `,
 )
 console.log('wrote src/circuit/fit.json and src/circuit/road.ts')
+
+// ---------------------------------------------------------------------------
+// a plan view of the fit, so it can be checked by eye rather than by faith
+// ---------------------------------------------------------------------------
+// docs/fit-plan.png: the model's asphalt in grey (shaded by height), the
+// projected geodata control points in blue, the measured centreline in red and
+// the lines the walls stand on in green. If the red follows the grey and the
+// blue sits on it, the fit is right.
+{
+  const SCALE = 2 // metres per pixel
+  const PAD = 12
+  const W = Math.ceil((maxX - minX) / SCALE) + PAD * 2
+  const H = Math.ceil((maxZ - minZ) / SCALE) + PAD * 2
+  const rgb = Buffer.alloc(W * H * 3, 18)
+  const at = (x, z) => [Math.round((x - minX) / SCALE) + PAD, Math.round((z - minZ) / SCALE) + PAD]
+  const put = (x, z, r, g, b) => {
+    const [i, j] = at(x, z)
+    if (i < 0 || i >= W || j < 0 || j >= H) return
+    const o = (j * W + i) * 3
+    rgb[o] = r
+    rgb[o + 1] = g
+    rgb[o + 2] = b
+  }
+  const lo = elevation.min - 4
+  const hi = elevation.max + 4
+  for (let j = 0; j < GZ; j++) {
+    for (let i = 0; i < GX; i++) {
+      const y = height[j * GX + i]
+      if (Number.isNaN(y)) continue
+      const v = Math.round(70 + ((y - lo) / (hi - lo)) * 150)
+      put(minX + i * CELL, minZ + j * CELL, v, v, v)
+    }
+  }
+  for (const [x, z] of CP) for (let d = -1; d <= 1; d++) for (let e = -1; e <= 1; e++) put(x + d * SCALE, z + e * SCALE, 80, 150, 255)
+  road.forEach((p, i) => {
+    const a = road[(i - 1 + SAMPLES) % SAMPLES]
+    const b = road[(i + 1) % SAMPLES]
+    const tx = b[0] - a[0]
+    const tz = b[1] - a[1]
+    const tl = Math.hypot(tx, tz) || 1
+    const rx = -tz / tl
+    const rz = tx / tl
+    put(p[0] - rx * edgesL[i], p[1] - rz * edgesL[i], 60, 220, 90)
+    put(p[0] + rx * edgesR[i], p[1] + rz * edgesR[i], 60, 220, 90)
+    put(p[0], p[1], 255, 60, 60)
+  })
+
+  // minimal PNG writer: 8-bit RGB, one zlib stream, no dependencies
+  const raw = Buffer.alloc(H * (W * 3 + 1))
+  for (let j = 0; j < H; j++) {
+    raw[j * (W * 3 + 1)] = 0 // filter: none
+    rgb.copy(raw, j * (W * 3 + 1) + 1, j * W * 3, (j + 1) * W * 3)
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(body) >>> 0)
+    return Buffer.concat([len, body, crc])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(W, 0)
+  ihdr.writeUInt32BE(H, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw, { level: 9 })),
+    chunk('IEND', Buffer.alloc(0)),
+  ])
+  mkdirSync(resolve(ROOT, 'docs'), { recursive: true })
+  writeFileSync(resolve(ROOT, 'docs/fit-plan.png'), png)
+  console.log(`wrote docs/fit-plan.png (${W} x ${H})`)
+}

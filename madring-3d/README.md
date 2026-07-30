@@ -1,8 +1,8 @@
 # Kilómetro Cero — 3D circuit mode
 
-A second game mode for this repository: a 3D racing game whose circuit is
-generated at load time from the real centreline of the IFEMA-Valdebebas street
-course in Madrid.
+A second game mode for this repository: a 3D racing game set on the
+IFEMA-Valdebebas street course in Madrid — a 3D model of the circuit, with the
+road the car drives on measured off that model rather than invented.
 
 The root of this repository is a top-down Phaser game. This directory is a
 separate, self-contained Vite + TypeScript app and does not share code with it —
@@ -15,7 +15,8 @@ only the circuit data in `../scripts/madring-centreline.js`.
 This is a derivative of **[colyseus/react-racing-game][fork]**, itself a fork of
 **[@pmndrs/racing-game][pmndrs]** — React Three Fiber, `@react-three/cannon`
 (cannon-es), zustand, Vite. Both are MIT. The vehicle physics, cameras, effects
-and HUD are theirs; the circuit is ours.
+and HUD are theirs; the circuit is a CC-BY-4.0 model by Dave Love plus the code
+that aligns it, measures a road out of it and makes it drivable.
 
 The desert map they ship has been removed entirely, along with the Colyseus
 multiplayer server and the hosted Supabase leaderboard. Read **[NOTICE](NOTICE)**
@@ -38,6 +39,15 @@ npm run build    # tsc && vite build  ->  dist/
 npm run serve    # preview the production build
 ```
 
+The circuit model is committed pre-compressed, so none of this needs the 135 MB
+source. To rebuild it from that source (see *The circuit* below):
+
+```sh
+npm run build:fit     # align the model, measure the road  -> src/circuit/road.ts
+npm run build:model   # compress it                        -> public/models/
+npm run build:assets  # both
+```
+
 No server, no account, no network. Everything the page needs is served from
 `public/`, including the Draco decoder that upstream fetched from a Google CDN.
 
@@ -47,118 +57,229 @@ the minimap, `I` shows the full key list.
 
 ## The circuit
 
-`../scripts/madring-centreline.js` exports 64 control points in world pixels
-plus `{ W, H, scale, lapM }`. Those coordinates are derived from
-[bacinger/f1-circuits][f1c] (MIT) — 116 lat/lon points of the published
-centreline, projected to a local metric plane and resampled at even arc length.
-`src/circuit/centreline.ts` is a verbatim TypeScript copy of that data.
+The circuit is a 3D model:
+
+> This work is based on **["Circuito de Madring 2026 layout"][model]** by
+> **[Dave Love SketchFab][author]**, licensed
+> **[CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/)**.
+
+[model]: https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
+[author]: https://sketchfab.com/Tyler_Dave
+
+That credit is a licence condition, not a courtesy. It is reproduced in
+[NOTICE](NOTICE), at the top of `src/models/track/Circuit.tsx`, and on the
+game's intro screen. Do not remove it while the model is in use.
+
+It supplies everything the procedural circuit did not: asphalt, kerbs, painted
+lines, tyre marks, concrete walls, catch fencing, the pit building and pit lane,
+the grandstands, the start gantry with its LED boards, floodlights, trackside
+signage, parked vehicles, trees, and the city around it. There is no crowd in
+it — the stands are modelled empty, seats and railings and distance boards, and
+no amount of rendering will put people in them.
+
+### Shipping it
+
+The model as distributed is 134.65 MB — a 98 MB `.bin`, 37 MB of PNG (of which
+35 MB is one 4096² backdrop) and a 164 KB `.gltf`. `npm run build:model` turns
+that into **8.82 MB**, a 15.3× reduction, by
+
+1. baking in the alignment transform (below) so the runtime needs no magic
+   numbers;
+2. dropping `TANGENT` and `TEXCOORD_1` — three derives the tangent frame in the
+   fragment shader, and nothing reads the second UV set;
+3. welding duplicate vertices;
+4. cutting every mesh that spans more than 320 m into 256 m tiles (see
+   *Performance*);
+5. re-encoding the textures as WebP, capped at 1024² (only the backdrop is
+   affected — everything else is 256² or smaller);
+6. Draco, 14-bit positions quantised per mesh, which over a 256 m tile is 1.6 cm.
+
+What that costs: the backdrop panorama loses half its resolution each way, WebP
+at quality 82 is lossy, and 14-bit positions are not exact. No geometry is
+removed and nothing is simplified — the triangle count out is the triangle count
+in, 1,689,008.
+
+The source stays in `assets/madring-sketchfab/` and is **not** committed (135 MB,
+and this repository does not redistribute it). Download it from the link above to
+rebuild; `npm run build:assets` runs the fit and the compression together.
+
+### Aligning it to the geodata
+
+`npm run build:fit` (`scripts/fit-circuit.mjs`) fits the model to the projected
+centreline in `src/circuit/centreline.ts` — 116 published lat/lon points from
+[bacinger/f1-circuits][f1c], projected to a local metric plane.
 
 [f1c]: https://github.com/bacinger/f1-circuits
 
-### Scale
+Both are already at true metric scale, so the fit is **rigid**: a yaw and a
+translation, nothing else. Every vertex of the model's `TarmacDark` mesh is
+pushed to its nearest point on the Catmull-Rom centreline and a *trimmed* RMS is
+minimised — the worst 20% of residuals are dropped, so the pit lane, the run-off
+aprons and the stretches where the geodata and the artist genuinely disagree
+cannot drag the whole circuit sideways. 360 starting yaws are tried, mirrored
+and not; Nelder-Mead refines the winner.
 
-**True scale.** Pixels are divided by `scale` (1.024386 px/m) and re-centred on
-the origin, so one world unit is one metre and the layout is ~1130 m × 1810 m.
-The lap comes out at **5274 m** against a published 5474 m — the shortfall is
-Catmull-Rom corner-cutting, 3.7%.
-
-Nothing was compressed for playability. The upstream vehicle is already tuned in
-metres — 4.7 m long, `maxSpeed` 88, i.e. ~316 km/h — so a real-size circuit gives
-roughly real lap times. Shrinking the track would only have made a car that is
-the right size for the world feel wrong in it.
-
-### How the road is built
-
-`src/circuit/layout.ts` builds one description of the road and everything else
-is generated from it, so the shape is never restyled by hand:
-
-1. A closed `CatmullRomCurve3` through the 64 control points, `centripetal`
-   parameterisation (uniform Catmull-Rom cusps on the tight hairpins).
-2. 1024 samples at even arc length, ~5.15 m apart.
-3. Signed curvature per sample from finite differences, smoothed over ±6 samples.
-4. Elevation, banking and width applied as functions of arc length and curvature.
-5. A road frame per sample — tangent, "driver's right", road normal — rolled
-   about the tangent by the banking angle. A road frame, not a Frenet frame: the
-   road only rolls where we bank it.
-
-`src/circuit/geometry.ts` then sweeps cross-sections along those frames. Asphalt,
-kerbs, run-off, barriers, tunnels and the collision mesh are all the same sweep
-with a different cross-section.
-
-### Collision
-
-The car drives on a cannon **`Trimesh`** swept from the same frames as the visual
-road: 512 rings × 7 columns, 6144 triangles. Upstream drove on a `Heightfield`
-baked from a greyscale PNG, which does not survive the move to this circuit — a
-1024-square heightfield over a 1.8 km world gives ~2 m cells, coarser than the
-kerbs, and it would turn 24% banking into a staircase.
-
-The trade-off is that **cannon-es implements only sphere-trimesh and
-plane-trimesh narrowphase** — there is no convex/box-vs-trimesh. So the chassis
-box does not collide with the road mesh; only the wheel raycasts do, and
-`Ray` does support trimesh (via the mesh's octree). That is enough, because a
-`RaycastVehicle` is held up entirely by its wheel rays. What it is *not* enough
-for is walls, so the outside of the run-off is lined with ~410 static boxes,
-grouped into 24 per-sector compound bodies so each keeps a small AABB. A ground
-plane sits below everything, and a single trigger plane at y = −60 puts you back
-on the circuit if you clear the lot.
-
-### La Monumental
-
-The signature banked loop is **found, not placed**. Prefix sums over the signed
-curvature locate the 550 m window whose *signed* mean curvature is largest in
-magnitude — by construction the section that turns hardest and never changes
-direction. On this layout that is the teardrop at the north end, and it comes out
-at:
+The result, on top of the glTF's own Z-up → Y-up rotation:
 
 | | |
 |---|---|
-| arc length | 2179 m → 2730 m |
-| radius | 133 m |
-| heading change | 238° |
-| banking | 24%, ramped in and out over 130 m |
+| yaw about +Y | **−0.3863°** |
+| translation | **(+84.00, 0, +3.33) m** |
+| scale | **1** (not fitted) |
+| mirrored | no |
+
+![the fit, in plan](docs/fit-plan.png)
+
+*The model's asphalt in grey, shaded by height; the 64 projected geodata control
+points in blue; the measured centreline in red; the lines the walls stand on in
+green. Written by `npm run build:fit` — if the red does not follow the grey, the
+fit is wrong.*
+
+and the model's tarmac then sits a **mean of 10.74 m / median 6.99 m** from the
+projected centreline (p95 35.77 m, max 88.69 m). Those residuals are not fit
+error. They are the two sources disagreeing: same circuit, same scale, same
+place, different curve.
+
+### Reading the road back out
+
+A rigid fit is not enough to drive on. If the model's walls are 7 m from where
+the game thinks the road is, they cross it. So the model wins outright: the
+aligned tarmac is rasterised to a 1 m occupancy/height grid, and the road is
+**measured** off it. At each of 1024 samples the script scans sideways, splits
+the scan into runs of asphalt, takes the nearest road-shaped one, and records
+
+* the middle of the paved corridor,
+* how far the asphalt runs to the left and to the right,
+* the surface height,
+* the cross-slope.
+
+Two details make that work. Runs wider than 36 m are rejected as not
+road-shaped, which keeps the centreline out of the run-off lay-by on the outside
+of the north loop; and a sample that finds no asphalt at all is interpolated
+between the samples either side rather than left where it was, because on that
+same loop the geodata is 60 m off the model and no scan we dare make would reach.
+The passes go wide (34 m) then narrow (20 m).
+
+That is written to `src/circuit/road.ts`, and *everything* the game does with the
+circuit is driven from it — lap timing, the minimap, respawns, the grid slot, the
+walls — so all of it lands on asphalt the player can see. The start/finish index
+is the sample nearest the model's own start gantry, which lands 1.8 m from the
+measured centreline.
+
+Measured off the model:
+
+| | |
+|---|---|
+| lap | **5428.9 m** (published 5474 m, −0.8%) |
+| paved corridor | 24.2 – 51.6 m edge to edge |
+| elevation | −7.2 → +16.9 m, a 24.1 m range |
+| cross-slope | up to 2.8° |
+| coverage | 99.69% of the 30,924 m² between the walls is asphalt |
+
+The old procedural ribbon is gone — `src/circuit/geometry.ts` and everything it
+swept. Keeping it as a physics surface under the model was possible but pointless:
+the model's own tarmac is the better surface *and* it is guaranteed to be where
+the model is drawn, which a parallel ribbon never is.
+
+### Collision
+
+Two things collide.
+
+**The asphalt.** The model's `TarmacDark` meshes go to cannon as static
+`Trimesh` bodies — 25 of them (one per tile the build script cut), 62,032
+triangles. The wheels ride on exactly the surface the player sees: every camber,
+crest, dip and kerb-height step in the model is felt.
+
+![the run down to the north loop](docs/backstraight.png)
+
+**The walls.** `src/circuit/walls.ts` puts a 0.8 × 3 × 21 m static box every
+21 m down each side, standing 0.8 m outside the measured asphalt edge, grouped
+into 24 compound bodies so no body has an AABB the size of the circuit. They are
+invisible. You may use the full width of the asphalt, run-off aprons included,
+and you cannot leave it.
+
+**Nothing else collides.** Grandstands, the pit building, the city, floodlights,
+signage, trees, the parked vans, the fences: decoration. The honest
+reason is that **cannon-es implements only sphere-trimesh and plane-trimesh
+narrowphase** — there is no convex/box-vs-trimesh — so a trimesh can be driven
+*on* (the wheel raycasts hit it; `Ray` supports trimesh via the mesh's octree)
+but never driven *into*. The chassis box passes straight through one. Giving
+1.6 M triangles of scenery collision would buy nothing but a slower broadphase.
+The design reason is that a street circuit is defined by its walls: get those
+right and nothing else needs to be solid.
+
+What that costs: you can drive through the pit-lane fence and the tyre stacks.
+You have to climb a wall to reach them.
+
+### Performance
+
+Measured, not guessed — this sandbox renders through SwiftShader at a fraction
+of a frame per second, so frame rates from it would be meaningless. What is
+meaningful is what the renderer is asked to do. Teleporting the car to 16 points
+around the lap and reading `WebGLRenderer.info` (shadow pass included):
+
+| | min | median | max |
+|---|---|---|---|
+| draw calls / frame | 142 | 466 | 839 |
+| triangles / frame | 124 k | 651 k | 1.27 M |
+
+against 1,481 meshes and 1,689,008 triangles in the file.
+
+That spread is the whole point of tiling. The source is one merged mesh per
+material, each stretching across the entire 1.9 km circuit, so frustum culling
+could never reject a single one of them: 86 draw calls, and all 1.69 M triangles
+submitted every frame from every camera angle. Cut into 256 m tiles, culling
+throws away 43–90% of the geometry. The trade is roughly 5× the draw calls for
+roughly 2.6× fewer triangles at the median, and **which side of that wins on real
+hardware has not been measured** — only that the tiled version submits far less
+geometry.
+
+There is no instancing and no LOD. Instancing has nothing to work with: the
+Sketchfab export already merged every repeated grandstand, tree and lamp post
+into one mesh per material, so the repetition the source had is gone before the
+file arrives. LOD would need decimated copies of 60 materials' worth of geometry
+and roughly doubles the download; tiling plus culling was the cheaper win.
+The road surface does not cast shadows (it would only shadow-acne itself), and
+the sun now follows the car — its 240 m shadow frustum used to sit at a fixed
+world position, which on a circuit this size meant nothing near the player was
+ever shadowed.
+
+### La Monumental
+
+The signature banked loop is still **found, not placed**, and now from the
+model's own geometry. Prefix sums over the signed curvature of the measured road
+locate the 550 m window whose *signed* mean curvature is largest in magnitude —
+by construction the section that turns hardest and never changes direction.
 
 ![La Monumental](docs/monumental.png)
 
-Every other corner gets a mild curvature-proportional bank, capped at 5%.
-
-Note that 24% (13.5°) of banking is nowhere near enough to hold 300 km/h through
-a 133 m radius on its own — that needs ~5.3 g of lateral load, and the real thing
-would rely on aerodynamic downforce this arcade car does not have. Take it at
-whatever speed sticks.
+Note that the model does not bank it anything like the 24% the real circuit is
+said to carry: the measured cross-slope peaks at 2.8° over the whole lap. That
+is the model's reading of the circuit, and it is now the game's.
 
 ## Derived vs. approximated
 
-**Derived from the real circuit data**
+**From the real circuit data**
 
-- The plan-view shape, at true metric scale, from `f1-circuits` via the root
-  `scripts/`. Not restyled, not smoothed beyond the Catmull-Rom fit.
-- The location, radius and length of La Monumental, found by curvature analysis
-  of that centreline.
-- Which section is the main straight — the longest low-curvature run — and the
-  fact that the start/finish line sits on it.
+- The plan-view shape, at true metric scale, from [f1-circuits][f1c] via the
+  root `scripts/`. Used to *place* the model, not to shape it.
 
-**Approximated, and why**
+**From the model** — which is one artist's reading of the circuit, not a survey
 
-- **Road width: 14 m, widening to 15 m on the main straight.** The real circuit
-  is 12 m and 15 m. 12 m is unpleasant with an arcade vehicle that has no
-  steering assist; 14 m is drivable and still narrow enough to read as a street
-  circuit.
-- **Elevation: 10 m of change**, matching the published figure, but the *profile*
-  is invented — two harmonics of the lap, so it is smooth and closes on itself.
-  The real per-corner elevations are not in the source data.
-- **Banking away from La Monumental** is invented: proportional to curvature,
-  capped at 5%. Only the 24% figure is real.
-- **Corners: 19 detected** at |R| < 200 m against a published 22. The centreline
-  is resampled at ~5 m and smoothed, which merges the tightest pairs.
-- **Tunnels: 2, 130 m each, cosmetic.** The circuit has two tunnels; their real
-  positions are not in the source data, so they are centred on the two longest
-  straights that do not carry the start/finish line. They are concrete arches
-  with no collision — you cannot hit the roof.
-- **Run-off, kerbs, barriers and the ground** are all invented. Kerbs are 1 m and
-  12 cm high; run-off is 9 m of verge each side; barriers are 3 m.
-- **Everything else on a street circuit** — buildings, grandstands, pit lane,
-  bridges, trackside furniture — is absent.
+- The road itself: where it runs, how wide the asphalt is, its elevation and its
+  cross-slope, all measured off `TarmacDark` and written to `src/circuit/road.ts`.
+- Everything visible: kerbs, lines, walls, fences, pit lane, grandstands, the
+  gantry, floodlights, signage, trees, the city.
+- The position of the start/finish line, taken from the model's own gantry.
+
+**Ours, and still approximate**
+
+- The invisible walls. They stand on the measured asphalt edge because that is
+  the only closed line we can measure; a real circuit's barriers are further out
+  in the run-off and closer in the corners.
+- Which section is La Monumental, from curvature analysis. The model does not
+  label its corners.
+- No collision on anything but the asphalt and those walls.
 
 ## Known limitations
 
@@ -168,9 +289,25 @@ whatever speed sticks.
   listed under `L`. Nothing is uploaded.
 - **The chassis passes through the road mesh** if it is ever separated from its
   wheels (see *Collision*). In normal driving the suspension keeps it clear.
+- **The scenery is not solid** — see *Collision*. Fences, tyre stacks and the
+  pit wall are decoration.
+- **0.31% of the area between the walls is not asphalt**: raster-quantisation
+  slivers at the edges, mostly. If the car finds one it drops through and the
+  killzone at y = −40 respawns it.
+- **The 24% banking of La Monumental is not in the model**, and is no longer
+  invented either. Cross-slope comes off the model and peaks at 2.8°.
+- **The grandstands are empty.** They are large, detailed and entirely
+  unpopulated: the asset has no crowd texture, so this is not something the
+  renderer can fix. Adding one means adding geometry the model does not have.
+- **Nothing in the model moves or makes a noise**: the LED boards do not play,
+  the marshals' flags do not wave, and there is no crowd noise. Foliage and
+  fence materials were `BLEND` in the source and are re-declared alpha-tested
+  here — several hundred thousand blended triangles would need depth sorting
+  the scene cannot afford — which crisps up their edges.
 - **`import.meta.env.DEV` exposes `window.__game`** (`getState`, `mutation`,
-  `getLayout`) so a headless browser can inspect the car and the layout. It is
-  stripped from production builds.
+  `getLayout`), `window.__render` (draw calls and triangles for the last frame),
+  `window.__circuit` and `window.__physics`, so a headless browser can inspect
+  the car, the layout and the renderer. All stripped from production builds.
 
 ### Changes to upstream behaviour
 
