@@ -7,7 +7,10 @@ const CP = require(SRC);
 const WORLD = CP.WORLD || { W: 1024, H: 768 };
 const { chromium } = require('playwright');
 
-const SPP = 20;                 // must match game.js spline()
+// Must match the samples-per-point the track under test uses in game.js. That
+// is 20 for every track except MADRING, whose denser control points are paired
+// with spp: 5 — pass SPP=5 when checking it.
+const SPP = Number(process.env.SPP || 20);
 const REAL_LAP_M = 5400;        // published circuit length
 const RW = Number(process.argv[2] || 42);
 

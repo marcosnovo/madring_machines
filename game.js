@@ -91,6 +91,13 @@ const UPGRADES = [
     { key: 'nitros',       name: 'NITRO (×1)',     cost: 1000,   max: 99 },
 ];
 
+// MADRING ground texture — a real overhead view of the circuit rather than
+// invented scenery, baked from the Sketchfab model by
+// scripts/madring-bake-overhead.js at one image pixel per world pixel.
+// See NOTICE for the model's CC-BY-4.0 attribution.
+const MADRING_BG_KEY = 'madring_overhead';
+const MADRING_BG_SRC = 'images/madring-overhead.jpg';
+
 // ── TRACK DATA ──────────────────────────────────────────────
 const TRACKS = [
     {
@@ -102,30 +109,90 @@ const TRACKS = [
         // Do not hand-tune the shape — the layout is only faithful as long as it
         // is left alone, and the scale is what keeps the tightest pinch (58.6 m,
         // where the two legs run side by side) wider than the road.
-        //   world 1334 x 2033 px · 1.0244 px/m · lap 5415 m
+        //
+        // 256 points at 5 samples each, not 64 at 20. What the car drives is the
+        // Catmull-Rom spline, not the points, and at 64 control points that
+        // spline cut every corner: a 5284 m lap against the real 5415 m, up to
+        // 17.8 m off the published centreline — further than the road is wide.
+        // At 256 the splined curve holds 0.30 m mean / 2.78 m worst error and a
+        // 5394 m lap. Dropping samples-per-point to 5 lands that finer curve on
+        // exactly the same 1280 waypoints as before, so everything addressed by
+        // waypoint index — AI look-ahead, tunnel spans, the start stagger —
+        // keeps the spacing it was tuned for. Measured by
+        // scripts/madring-accuracy.js; re-run it before touching either number.
+        //   world 1338 x 2033 px · 1.0244 px/m · lap 5394 m
         name: 'MADRING', theme: 'madrid',
         seed: 23,
         music: MUSIC.spanish,
-        W: 1334, H: 2033,
+        W: 1338, H: 2033,
         rw: 46,
+        spp: 5,
         laps: 4,
         cp: [
-            {x:823,y:1841}, {x:738,y:1856}, {x:652,y:1871}, {x:613,y:1932},
-            {x:527,y:1942}, {x:452,y:1904}, {x:405,y:1831}, {x:359,y:1758},
-            {x:313,y:1685}, {x:266,y:1612}, {x:219,y:1539}, {x:182,y:1460},
-            {x:158,y:1377}, {x:151,y:1291}, {x:160,y:1205}, {x:196,y:1126},
-            {x:199,y:1056}, {x:179,y:972},  {x:137,y:896},  {x:116,y:813},
-            {x:106,y:741},  {x:122,y:667},  {x:91,y:588},   {x:90,y:501},
-            {x:114,y:423},  {x:175,y:363},  {x:158,y:280},  {x:131,y:198},
-            {x:158,y:119},  {x:237,y:90},   {x:314,y:122},  {x:356,y:194},
-            {x:345,y:279},  {x:300,y:352},  {x:246,y:420},  {x:193,y:489},
-            {x:151,y:563},  {x:208,y:623},  {x:277,y:676},  {x:301,y:756},
-            {x:302,y:843},  {x:341,y:918},  {x:416,y:957},  {x:503,y:957},
-            {x:586,y:939},  {x:646,y:977},  {x:691,y:1051}, {x:738,y:1122},
-            {x:821,y:1127}, {x:907,y:1129}, {x:969,y:1184}, {x:986,y:1268},
-            {x:1001,y:1354},{x:1017,y:1439},{x:1061,y:1475},{x:1145,y:1459},
-            {x:1199,y:1502},{x:1221,y:1586},{x:1238,y:1671},{x:1244,y:1755},
-            {x:1165,y:1781},{x:1079,y:1796},{x:994,y:1811}, {x:909,y:1826},
+            {x:823,y:1841},{x:802,y:1845},{x:781,y:1849},{x:759,y:1852},
+            {x:738,y:1856},{x:716,y:1860},{x:695,y:1864},{x:674,y:1867},
+            {x:652,y:1871},{x:631,y:1875},{x:620,y:1890},{x:619,y:1912},
+            {x:613,y:1932},{x:592,y:1936},{x:570,y:1939},{x:549,y:1943},
+            {x:527,y:1942},{x:506,y:1938},{x:486,y:1930},{x:468,y:1919},
+            {x:452,y:1904},{x:439,y:1886},{x:428,y:1868},{x:416,y:1850},
+            {x:405,y:1831},{x:393,y:1813},{x:382,y:1795},{x:370,y:1776},
+            {x:359,y:1758},{x:347,y:1740},{x:336,y:1721},{x:324,y:1703},
+            {x:313,y:1685},{x:301,y:1666},{x:289,y:1648},{x:278,y:1630},
+            {x:266,y:1612},{x:254,y:1594},{x:242,y:1575},{x:230,y:1557},
+            {x:219,y:1539},{x:209,y:1519},{x:200,y:1500},{x:191,y:1480},
+            {x:182,y:1460},{x:175,y:1440},{x:169,y:1419},{x:164,y:1398},
+            {x:158,y:1377},{x:156,y:1356},{x:153,y:1334},{x:151,y:1313},
+            {x:152,y:1291},{x:153,y:1269},{x:155,y:1248},{x:157,y:1226},
+            {x:161,y:1205},{x:168,y:1185},{x:176,y:1164},{x:185,y:1145},
+            {x:196,y:1126},{x:206,y:1108},{x:190,y:1094},{x:190,y:1075},
+            {x:199,y:1056},{x:197,y:1034},{x:192,y:1013},{x:186,y:992},
+            {x:179,y:972}, {x:171,y:952}, {x:159,y:933}, {x:147,y:916},
+            {x:137,y:896}, {x:131,y:876}, {x:126,y:855}, {x:121,y:834},
+            {x:116,y:813}, {x:109,y:792}, {x:99,y:773},  {x:90,y:755},
+            {x:106,y:741}, {x:123,y:727}, {x:132,y:708}, {x:130,y:687},
+            {x:122,y:667}, {x:112,y:648}, {x:101,y:629}, {x:93,y:609},
+            {x:91,y:588},  {x:91,y:566},  {x:91,y:544},  {x:90,y:523},
+            {x:90,y:501},  {x:91,y:480},  {x:92,y:458},  {x:99,y:438},
+            {x:114,y:423}, {x:131,y:410}, {x:148,y:396}, {x:165,y:382},
+            {x:175,y:363}, {x:176,y:342}, {x:174,y:320}, {x:167,y:300},
+            {x:158,y:280}, {x:150,y:260}, {x:142,y:240}, {x:134,y:220},
+            {x:131,y:198}, {x:132,y:177}, {x:136,y:156}, {x:145,y:136},
+            {x:158,y:119}, {x:175,y:106}, {x:194,y:96},  {x:215,y:92},
+            {x:237,y:90},  {x:258,y:91},  {x:278,y:98},  {x:298,y:108},
+            {x:314,y:122}, {x:331,y:136}, {x:342,y:154}, {x:353,y:173},
+            {x:357,y:194}, {x:359,y:216}, {x:357,y:237}, {x:353,y:258},
+            {x:345,y:279}, {x:335,y:298}, {x:325,y:317}, {x:313,y:335},
+            {x:300,y:352}, {x:287,y:369}, {x:273,y:386}, {x:259,y:403},
+            {x:246,y:420}, {x:232,y:437}, {x:219,y:454}, {x:205,y:471},
+            {x:193,y:489}, {x:182,y:507}, {x:170,y:525}, {x:158,y:543},
+            {x:151,y:563}, {x:157,y:583}, {x:173,y:598}, {x:190,y:611},
+            {x:208,y:623}, {x:226,y:636}, {x:244,y:648}, {x:261,y:662},
+            {x:277,y:676}, {x:290,y:693}, {x:298,y:713}, {x:301,y:734},
+            {x:301,y:756}, {x:301,y:778}, {x:301,y:799}, {x:301,y:821},
+            {x:302,y:843}, {x:307,y:863}, {x:316,y:883}, {x:328,y:901},
+            {x:342,y:918}, {x:357,y:933}, {x:375,y:945}, {x:396,y:952},
+            {x:416,y:957}, {x:438,y:957}, {x:460,y:957}, {x:481,y:957},
+            {x:503,y:957}, {x:525,y:957}, {x:546,y:957}, {x:566,y:949},
+            {x:586,y:939}, {x:605,y:931}, {x:622,y:941}, {x:634,y:959},
+            {x:646,y:977}, {x:658,y:995}, {x:669,y:1014},{x:680,y:1032},
+            {x:691,y:1051},{x:702,y:1070},{x:711,y:1089},{x:722,y:1108},
+            {x:738,y:1122},{x:757,y:1131},{x:778,y:1133},{x:800,y:1130},
+            {x:821,y:1127},{x:843,y:1124},{x:864,y:1123},{x:886,y:1124},
+            {x:907,y:1129},{x:927,y:1136},{x:944,y:1149},{x:959,y:1164},
+            {x:969,y:1184},{x:975,y:1204},{x:978,y:1226},{x:982,y:1247},
+            {x:986,y:1268},{x:990,y:1290},{x:994,y:1311},{x:998,y:1332},
+            {x:1001,y:1354},{x:1005,y:1375},{x:1009,y:1396},{x:1013,y:1418},
+            {x:1017,y:1439},{x:1020,y:1460},{x:1025,y:1481},{x:1043,y:1488},
+            {x:1061,y:1475},{x:1081,y:1467},{x:1102,y:1464},{x:1123,y:1462},
+            {x:1145,y:1459},{x:1167,y:1456},{x:1185,y:1461},{x:1193,y:1481},
+            {x:1199,y:1502},{x:1206,y:1522},{x:1211,y:1543},{x:1216,y:1565},
+            {x:1221,y:1586},{x:1226,y:1607},{x:1230,y:1628},{x:1234,y:1649},
+            {x:1238,y:1671},{x:1241,y:1692},{x:1245,y:1713},{x:1247,y:1735},
+            {x:1244,y:1755},{x:1229,y:1769},{x:1207,y:1774},{x:1186,y:1778},
+            {x:1165,y:1781},{x:1143,y:1785},{x:1122,y:1789},{x:1101,y:1793},
+            {x:1079,y:1796},{x:1058,y:1800},{x:1037,y:1804},{x:1015,y:1808},
+            {x:994,y:1811},{x:973,y:1815},{x:951,y:1819},{x:930,y:1822},
+            {x:909,y:1826},{x:887,y:1830},{x:866,y:1834},{x:845,y:1837},
         ],
         mud: [],
         // La Monumental: a 550 m banked semicircle at the north end, taken flat
@@ -1228,6 +1295,13 @@ class BootScene extends Phaser.Scene {
 
         // No character art is loaded from disk — the four drivers' avatars and
         // car sprites are generated from simple shapes in genDrivers().
+        //
+        // The one exception is the MADRING's ground: a real overhead view of
+        // the circuit, baked from a 3D model of it by
+        // scripts/madring-bake-overhead.js. See TRACKS[0] and NOTICE. If it
+        // fails to load the track falls back to drawing its own scenery, so a
+        // missing file costs art, not a playable track.
+        this.load.image(MADRING_BG_KEY, MADRING_BG_SRC);
     }
 
     create() {
@@ -1609,7 +1683,9 @@ class BootScene extends Phaser.Scene {
             t.W = t.W || GW;
             t.H = t.H || GH;
             const TW = t.W, TH = t.H;
-            const wp = spline(t.cp, 20);
+            // Samples per control point. 20 everywhere except MADRING, whose
+            // control points are 4x denser — see the note on that track.
+            const wp = spline(t.cp, t.spp || 20);
             t.wp = wp;
 
             // Convert fractional tunnel positions → waypoint indices for hand-crafted tracks
@@ -2838,9 +2914,23 @@ class BootScene extends Phaser.Scene {
                 });
 
             } else if (theme === 'madrid') {
-                // ── MADRING: Madrid street course, IFEMA halls and dry meseta ──
-                // Everything is sized off TW/TH: this track is a multi-screen
-                // world, so nothing here may assume the 1024x768 screen.
+                // ── MADRING: the real circuit, seen from directly above ──
+                // Nothing here is invented. The ground is a single baked image
+                // — an orthographic render, looking straight down, of a 3D
+                // model of the circuit ("Circuito de Madring 2026 layout" by
+                // Dave Love, CC-BY-4.0; see NOTICE) — so the halls, the pit
+                // complex, the grandstands, the start gantry, the trees and the
+                // surrounding Valdebebas are the real ones in their real
+                // places. scripts/madring-bake-overhead.js fits the model to
+                // this track's centreline and renders at one image pixel per
+                // world pixel, so drawing it at 0,0 at native size is the whole
+                // alignment story. It already carries the road, painted at
+                // TRACKS[0].rw along this same spline, because the game's cars
+                // need a wider ribbon than the real 15 m circuit offers.
+                //
+                // The collision map further down is NOT derived from this
+                // image. It is still stroked from the spline, exactly as every
+                // other track's is. The picture is scenery; the spline is truth.
                 const span = (i0, i1) => {           // sub-path along the lap
                     vx.beginPath();
                     for (let i = i0; i <= i1; i++) {
@@ -2850,77 +2940,29 @@ class BootScene extends Phaser.Scene {
                 };
                 const bank0 = Math.round((t.bankWp ? t.bankWp[0] : 0) * wp.length);
                 const bank1 = Math.round((t.bankWp ? t.bankWp[1] : 0) * wp.length);
-                // dry Madrid ground
-                vx.fillStyle = '#b9a878'; vx.fillRect(0, 0, TW, TH);
-                for (let i = 0; i < 120; i++) {
-                    const sh = 150 + (srand() * 40 | 0);
-                    vx.fillStyle = `rgba(${sh},${sh - 15},${sh - 60},0.5)`;
-                    vx.beginPath(); vx.arc(srand() * TW, srand() * TH, 30 + srand() * 120, 0, Math.PI * 2); vx.fill();
+
+                const bakedTex = this.textures.exists(MADRING_BG_KEY)
+                    ? this.textures.get(MADRING_BG_KEY).getSourceImage() : null;
+                if (bakedTex && bakedTex.width) {
+                    vx.drawImage(bakedTex, 0, 0, TW, TH);
+                } else {
+                    // Fallback for when the bake is missing — over file://, say,
+                    // or before anyone has run the script. Deliberately plain,
+                    // and deliberately free of srand() so pickups land in the
+                    // same places either way: a track you can still race, not a
+                    // second set of invented scenery to keep in step.
+                    console.warn('MADRING: ' + MADRING_BG_SRC + ' unavailable — drawing plain road');
+                    vx.fillStyle = '#b9a878'; vx.fillRect(0, 0, TW, TH);
+                    vx.lineCap = 'round'; vx.lineJoin = 'round'; vx.setLineDash([]);
+                    vx.strokeStyle = '#cc2222'; vx.lineWidth = t.rw + 12;
+                    vx.setLineDash([16, 16]); drawPath(vx, wp); vx.stroke();
+                    vx.strokeStyle = '#f0f0f0'; vx.lineDashOffset = 16;
+                    drawPath(vx, wp); vx.stroke();
+                    vx.setLineDash([]); vx.lineDashOffset = 0;
+                    vx.strokeStyle = '#3c3c42'; vx.lineWidth = t.rw; drawPath(vx, wp); vx.stroke();
+                    vx.strokeStyle = '#45454c'; vx.lineWidth = t.rw - 14; drawPath(vx, wp); vx.stroke();
                 }
-                // Valdebebas parkland in the north half
-                for (let i = 0; i < 26; i++) {
-                    vx.fillStyle = `rgba(${70 + (srand() * 30 | 0)},${115 + (srand() * 40 | 0)},50,0.5)`;
-                    vx.beginPath();
-                    vx.ellipse(srand() * TW, srand() * TH * 0.45, 60 + srand() * 120, 40 + srand() * 90, srand() * 3, 0, Math.PI * 2);
-                    vx.fill();
-                }
-                // IFEMA exhibition halls — a row of pale sheds along the east side
-                const hall = (hx, hy, hw, hh) => {
-                    vx.fillStyle = 'rgba(0,0,0,0.22)'; vx.fillRect(hx + 7, hy + 9, hw, hh);
-                    vx.fillStyle = '#d8d5cc'; vx.fillRect(hx, hy, hw, hh);
-                    vx.strokeStyle = '#a8a49a'; vx.lineWidth = 2;
-                    for (let r = 12; r < hw; r += 22) {          // roof ribs
-                        vx.beginPath(); vx.moveTo(hx + r, hy); vx.lineTo(hx + r, hy + hh); vx.stroke();
-                    }
-                    vx.strokeStyle = '#8d8a82'; vx.lineWidth = 3; vx.strokeRect(hx, hy, hw, hh);
-                };
-                // scattered olive/plane trees (before the halls so nothing grows indoors)
-                for (let i = 0; i < 90; i++) {
-                    const tx2 = srand() * TW, ty2 = srand() * TH;
-                    vx.fillStyle = 'rgba(0,0,0,0.18)';
-                    vx.beginPath(); vx.arc(tx2 + 3, ty2 + 4, 7, 0, Math.PI * 2); vx.fill();
-                    vx.fillStyle = `rgba(${45 + (srand() * 30 | 0)},${95 + (srand() * 45 | 0)},${35 + (srand() * 25 | 0)},0.9)`;
-                    vx.beginPath(); vx.arc(tx2, ty2, 7 + srand() * 4, 0, Math.PI * 2); vx.fill();
-                }
-                hall(700, 1300, 210, 130); hall(700, 1460, 210, 130);
-                hall(960, 1300, 180, 130); hall(430, 1230, 200, 120);
-                hall(760, 760, 190, 110);  hall(980, 760, 150, 110);
-                // Palacio-style rotunda between the halls
-                vx.fillStyle = '#e2ded2';
-                vx.beginPath(); vx.arc(640, 1590, 60, 0, Math.PI * 2); vx.fill();
-                vx.strokeStyle = '#a8a49a'; vx.lineWidth = 3; vx.stroke();
-                vx.strokeStyle = 'rgba(140,136,126,0.8)'; vx.lineWidth = 2;
-                for (let k = 1; k < 4; k++) { vx.beginPath(); vx.arc(640, 1590, 60 - k * 14, 0, Math.PI * 2); vx.stroke(); }
-                // ── La Monumental: grandstand bowl wrapped around the banked loop ──
-                vx.lineJoin = 'round'; vx.setLineDash([]);
-                vx.lineCap = 'round';
-                vx.strokeStyle = '#8f8f98'; vx.lineWidth = t.rw + 120; span(bank0 - 6, bank1 + 6); vx.stroke();
-                vx.strokeStyle = '#b6b6be'; vx.lineWidth = t.rw + 104; span(bank0 - 6, bank1 + 6); vx.stroke();
-                // concentric tiers, widest first: each narrower ring covers the
-                // middle of the last one, so they read as stepped seating decks
-                for (let k = 0; k < 4; k++) {
-                    vx.lineWidth = t.rw + 100 - k * 16;
-                    vx.strokeStyle = k % 2 ? 'rgba(146,66,58,0.75)' : 'rgba(78,86,116,0.75)';
-                    span(bank0 - 6, bank1 + 6); vx.stroke();
-                    vx.lineCap = 'butt';
-                    vx.strokeStyle = 'rgba(40,40,50,0.35)';       // gangways between seat blocks
-                    vx.setLineDash([3, 15]);
-                    span(bank0 - 6, bank1 + 6); vx.stroke();
-                    vx.setLineDash([]); vx.lineCap = 'round';
-                }
-                vx.strokeStyle = '#83838d'; vx.lineWidth = t.rw + 34; span(bank0 - 6, bank1 + 6); vx.stroke();
-                // ── road ──
-                // kerb: red/white dashes laid wider than the asphalt, so the
-                // stripes show along both edges once the surface goes over them
-                vx.strokeStyle = '#cc2222'; vx.lineWidth = t.rw + 12;
-                vx.setLineDash([16, 16]); drawPath(vx, wp); vx.stroke();
-                vx.strokeStyle = '#f0f0f0'; vx.lineDashOffset = 16;
-                drawPath(vx, wp); vx.stroke();
-                vx.setLineDash([]); vx.lineDashOffset = 0;
-                vx.strokeStyle = '#3f3f46'; vx.lineWidth = t.rw; drawPath(vx, wp); vx.stroke();
-                vx.strokeStyle = '#47474f'; vx.lineWidth = t.rw - 14; drawPath(vx, wp); vx.stroke();
-                vx.strokeStyle = 'rgba(230,230,230,0.55)'; vx.lineWidth = 1.5;
-                vx.setLineDash([10, 16]); drawPath(vx, wp); vx.stroke(); vx.setLineDash([]);
+                vx.lineCap = 'round'; vx.lineJoin = 'round'; vx.setLineDash([]);
                 t.mud.forEach(m => {                     // gravel dragged onto the surface
                     const g = vx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
                     g.addColorStop(0, 'rgba(120,100,60,0.9)'); g.addColorStop(1, 'rgba(120,100,60,0.15)');
@@ -3444,6 +3486,15 @@ class MainMenuScene extends Phaser.Scene {
                 ],
             },
             {
+                // CC-BY-4.0 makes this credit mandatory, not courteous: the
+                // MADRING's overhead view is baked from this model.
+                header: 'CIRCUIT MODEL — CC BY 4.0',
+                entries: [
+                    { text: 'Dave Love — Circuito de Madring 2026', color: '#fff' },
+                    { text: 'sketchfab.com/Tyler_Dave',             color: '#888', small: true },
+                ],
+            },
+            {
                 header: 'GAME ASSETS — CC0',
                 entries: [
                     { text: 'Kenney — Racing Pack',         color: '#fff' },
@@ -3459,19 +3510,19 @@ class MainMenuScene extends Phaser.Scene {
             },
         ];
 
-        let y = 245;
+        let y = 232;
         sections.forEach(sec => {
             addTxt(GW / 2, y, sec.header, {
                 fontSize: '14px', color: '#666', fontStyle: 'italic',
             }).setOrigin(0.5);
-            y += 28;
+            y += 26;
             sec.entries.forEach(e => {
                 addTxt(GW / 2, y, e.text, {
-                    fontSize: e.small ? '15px' : '21px', color: e.color, fontStyle: 'bold',
+                    fontSize: e.small ? '15px' : '20px', color: e.color, fontStyle: 'bold',
                 }).setOrigin(0.5);
-                y += e.small ? 24 : 34;
+                y += e.small ? 23 : 32;
             });
-            y += 20;
+            y += 16;
         });
 
         addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' }).setOrigin(0.5);

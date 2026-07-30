@@ -47,6 +47,25 @@ Circuit centreline — Tomislav Bacinger, "f1-circuits"
     to a local metric plane, scaled and resampled. No file from that project
     is redistributed here; only the derived coordinates.
 
+Circuit 3D model — Dave Love, "Circuito de Madring 2026 layout"
+    https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
+    Licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
+    Attribution is a condition of the licence. The required credit reads:
+
+        This work is based on "Circuito de Madring 2026 layout"
+        (https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05)
+        by Dave Love SketchFab (https://sketchfab.com/Tyler_Dave)
+        licensed under CC-BY-4.0
+        (http://creativecommons.org/licenses/by/4.0/)
+
+    It is also given in the in-game CREDITS screen (game.js, _buildCredits).
+    The model itself lives at madring-3d/assets/madring-sketchfab/ with its
+    original license.txt alongside it. The MADRING track's ground texture,
+    images/madring-overhead.jpg, is an orthographic top-down render of this
+    model produced by scripts/madring-bake-overhead.js, and is therefore an
+    adaptation of it: anyone redistributing that image must carry the credit
+    above and the CC-BY-4.0 licence with it.
+
 Game framework — Phaser 3
     https://phaser.io/
     Copyright (c) Richard Davey / Phaser Studio Inc., MIT License.
@@ -76,8 +95,13 @@ Also removed: the GitHub Octocat sticker that the DESK CHAOS track drew
 procedurally onto its laptop lid (game.js), replaced with an original "KM 0"
 road-marker sticker.
 
-No file in this repository is covered by a copyright carve-out. Everything
-here is redistributable under the MIT License in LICENSE.
+No file in this repository is covered by a copyright carve-out — nothing here
+is "for reference only", and everything may be redistributed. Most of it is
+redistributable under the MIT License in LICENSE; the exception is the circuit
+3D model in madring-3d/assets/madring-sketchfab/ and the MADRING ground texture
+derived from it (images/madring-overhead.jpg), which are redistributable under
+CC-BY-4.0 with the credit set out in section 2. That is a permissive licence
+with an attribution condition, not a restriction on redistribution.
 
 
 4. ADDED BY THIS PROJECT
@@ -90,9 +114,10 @@ Original work by the Kilómetro Cero contributors, MIT licensed:
     drawn from primitive shapes at runtime in BootScene.genDrivers()
     (game.js), so the project ships no character art at all.
   - The "KM 0" sticker described in section 3.
-  - The MADRING track layout, its scenery, and the `banking` terrain type.
-    See README.md for what is derived from published circuit data and what
-    is our own approximation.
+  - The MADRING track layout and the `banking` terrain type. See README.md
+    for what is derived from published circuit data and what is our own
+    approximation. The track's scenery is no longer ours: it is a render of
+    the CC-BY-4.0 model credited in section 2.
 
 
 5. TRADEMARK NOTICE

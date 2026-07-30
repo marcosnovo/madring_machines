@@ -58,8 +58,8 @@ python3 -m http.server 8000
       <td align="center">1</td>
       <td><strong>MADRING</strong></td>
       <td><img src="images/map-madring.png" width="240" alt="MADRING"></td>
-      <td>IFEMA-Valdebebas street course, Madrid — layout derived from the real circuit's published centreline geodata, scaled to a 1334x2033 world</td>
-      <td>Madrid street course — La Monumental banked bowl, two tunnels, IFEMA halls and dry meseta scrub</td>
+      <td>IFEMA-Valdebebas street course, Madrid — 256-point centreline from the real circuit's published geodata, scaled to a 1338x2033 world</td>
+      <td>Madrid street course — overhead view baked from a 3D scan of the real circuit, with La Monumental, the pit complex and two tunnels</td>
     </tr>
     <tr>
       <td align="center">2</td>
@@ -247,6 +247,7 @@ contributors under the MIT licence in [`LICENSE`](LICENSE).
 | Replaced the Octocat sticker on the DESK CHAOS laptop with an original "KM 0" road-marker sticker | Removes a third-party trademark from the artwork |
 | Renamed the product, page title and on-screen title | See [Naming and trademarks](#naming-and-trademarks) |
 | Added [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) | Upstream had no `LICENSE` file — only a line in its README |
+| MADRING's scenery is a baked overhead render of a 3D model of the real circuit (`scripts/madring-bake-overhead.js`), not hand-drawn art | The point of the track is that it is the real place; invented IFEMA halls and meseta scrub were an approximation of something we had a real source for |
 
 ### Removed, and why
 
@@ -286,6 +287,10 @@ additions made here. [`NOTICE`](NOTICE) records the provenance in detail.
 
 - **Lee Reilly and contributors** — the original
   [micro-machines](https://github.com/leereilly/micro-machines) engine (MIT)
+- **Dave Love** — the MADRING's overhead view is a top-down render of
+  ["Circuito de Madring 2026 layout"](https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05)
+  by [Dave Love SketchFab](https://sketchfab.com/Tyler_Dave), licensed
+  [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/)
 - **Kenney** — vehicle art reference
   ([Racing Pack](https://kenney.nl/assets/racing-pack), CC0)
 - **MFCC** — music ([Pixabay](https://pixabay.com/users/28627740/))

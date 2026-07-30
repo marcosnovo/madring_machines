@@ -112,6 +112,14 @@ const CP = cps.map(p => ({
     y: Math.round(p.y - minY + MARGIN),
 }));
 
+// The untouched source polyline, placed in the same world frame as CP. Nothing
+// in the game reads this; it is the reference scripts/madring-accuracy.js
+// measures the splined lap against.
+const SRC_LINE = pts.map(p => ({
+    x: p.x * scale - minX + MARGIN,
+    y: p.y * scale - minY + MARGIN,
+}));
+
 if (require.main === module) {
     console.error(`source          : ${SRC}`);
     console.error(`declared length : ${DECLARED_M} m`);
@@ -128,4 +136,4 @@ if (require.main === module) {
     console.log(`module.exports.WORLD = { W: ${W}, H: ${H} };`);
 }
 
-module.exports = { CP, WORLD: { W, H }, scale, lenM, DECLARED_M };
+module.exports = { CP, SRC: SRC_LINE, WORLD: { W, H }, scale, lenM, DECLARED_M };
