@@ -12,6 +12,7 @@ import {
   bandGeometry,
   kerbGeometry,
   tunnelGeometry,
+  wallGeometry,
 } from '../../circuit/geometry'
 import { getLayout, pointAt } from '../../circuit/layout'
 import { levelLayer, useStore } from '../../store'
@@ -84,6 +85,8 @@ export function Circuit(): JSX.Element {
       apronLeft: apronGeometry(layout, -1),
       apronRight: apronGeometry(layout, 1),
       startLine: bandGeometry(layout, layout.startIndex, 1.6),
+      wallLeft: wallGeometry(layout, -1),
+      wallRight: wallGeometry(layout, 1),
       tunnels: layout.tunnels.map((section) => tunnelGeometry(layout, section)),
     }),
     [layout],
@@ -109,6 +112,12 @@ export function Circuit(): JSX.Element {
         </mesh>
         <mesh geometry={geometries.kerbRight} receiveShadow castShadow>
           <meshStandardMaterial vertexColors roughness={0.55} />
+        </mesh>
+        <mesh geometry={geometries.wallLeft} receiveShadow castShadow>
+          <meshStandardMaterial vertexColors roughness={0.7} side={DoubleSide} />
+        </mesh>
+        <mesh geometry={geometries.wallRight} receiveShadow castShadow>
+          <meshStandardMaterial vertexColors roughness={0.7} side={DoubleSide} />
         </mesh>
         <mesh geometry={geometries.startLine}>
           <meshStandardMaterial map={checker} roughness={0.7} polygonOffset polygonOffsetFactor={-2} />

@@ -72,7 +72,9 @@ export function ribbon(layout: Layout, options: RibbonOptions): BufferGeometry {
       const b = ri * cols + c + 1
       const d = next * cols + c
       const e = next * cols + c + 1
-      indices.push(a, d, b, b, d, e)
+      // Wound so the face normal is cross(r, t) = up: the road must face the
+      // sky, both to be lit and because cannon's wheel raycast skips backfaces.
+      indices.push(a, b, d, b, e, d)
     }
   }
 

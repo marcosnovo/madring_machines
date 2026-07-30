@@ -12,6 +12,7 @@ import type { GLTF } from 'three-stdlib'
 
 import type { Camera, Controls } from '../../store'
 import { getState, mutation, setState, useStore } from '../../store'
+import { DRACO_PATH } from '../../draco'
 
 const { lerp } = MathUtils
 
@@ -72,7 +73,7 @@ export const Chassis = forwardRef<Group, PropsWithChildren<BoxProps>>(({ args = 
   const chassis_1 = useRef<MaterialMesh>(null!)
   const crashAudio = useRef<PositionalAudioImpl>(null!)
   const [maxSpeed] = useStore((s) => [s.vehicleConfig.maxSpeed])
-  const { nodes: n, materials: m } = useGLTF('/models/chassis-draco.glb') as ChassisGLTF
+  const { nodes: n, materials: m } = useGLTF('/models/chassis-draco.glb', DRACO_PATH) as ChassisGLTF
 
   const onCollide = useCallback(
     debounce<(e: CollideEvent) => void>((e) => {

@@ -39,6 +39,8 @@ export const ELEVATION_RANGE = 10
 /** La Monumental: banking as a percentage grade, and the length it is held. */
 export const MONUMENTAL_BANKING = 0.24
 export const MONUMENTAL_LENGTH = 550
+/** Length of each cosmetic tunnel, metres. */
+export const TUNNEL_LENGTH = 130
 /** Ramp in/out length for the banking transition, metres. */
 const BANK_RAMP = 130
 /** Gentle banking elsewhere, proportional to curvature, capped at this grade. */
@@ -237,7 +239,18 @@ function build(): Layout {
     return wrap(i - sec.from, SAMPLES) <= span
   }
   const mainStraight = uniqueStraights.find((s) => contains(s, 0)) ?? uniqueStraights[0]
-  const tunnels = uniqueStraights.filter((s) => s !== mainStraight && s.length > 140).slice(0, 2)
+  // Two cosmetic tunnels, centred on the two longest straights that are not the
+  // start/finish straight, capped at TUNNEL_LENGTH.
+  const tunnelSamples = Math.round(TUNNEL_LENGTH / ds)
+  const tunnels = uniqueStraights
+    .filter((s) => s !== mainStraight && s.length > TUNNEL_LENGTH + 40)
+    .slice(0, 2)
+    .map((s) => {
+      const span = wrap(s.to - s.from, SAMPLES)
+      const from = wrap(s.from + Math.round((span - tunnelSamples) / 2), SAMPLES)
+      const to = wrap(from + tunnelSamples, SAMPLES)
+      return { from, to, sFrom: from * ds, sTo: to * ds, length: tunnelSamples * ds }
+    })
 
   // --- elevation -----------------------------------------------------------
   // Two harmonics of the lap, so the profile is smooth and closes on itself.
@@ -285,8 +298,9 @@ function build(): Layout {
   const gridIndex = wrap(-Math.round(25 / ds), SAMPLES)
   const g = samples[gridIndex]
   const gp = pointAt(g, 0, 1.2)
-  // The chassis is modelled nose-toward local -Z, so yaw = atan2(-Tx, -Tz).
-  const yaw = Math.atan2(-g.t.x, -g.t.z)
+  // cannon's RaycastVehicle drives along the chassis' local +Z (r3f-cannon
+  // defaults indexForwardAxis = 2), so yaw = atan2(Tx, Tz) faces it up the road.
+  const yaw = Math.atan2(g.t.x, g.t.z)
 
   return {
     samples,
