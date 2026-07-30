@@ -10,8 +10,9 @@
  *     62,032 triangles in 25 bodies, each with its own AABB and octree.
  *
  *   * THE WALLS — generated boxes just outside the measured edge of the
- *     asphalt (see ../../circuit/walls). Static compound bodies, 24 of them,
- *     invisible.
+ *     asphalt (see ../../circuit/walls). Static compound bodies, 48 of them,
+ *     invisible. They are thick and tall on purpose; walls.ts explains why a
+ *     thin one does not stop a car at 200 km/h.
  *
  * Everything else in the model is decoration and has no collision at all:
  * grandstands, the pit building, the city, floodlights, signage, trees, the
@@ -34,7 +35,7 @@ import type { BufferGeometry, Mesh, Object3D } from 'three'
 
 import { asset } from '../../assets'
 import { getLayout } from '../../circuit/layout'
-import { walls } from '../../circuit/walls'
+import { WALL_SECTORS, walls } from '../../circuit/walls'
 import { DRACO_PATH } from '../../draco'
 import { CIRCUIT_MODEL } from './Circuit'
 
@@ -82,7 +83,7 @@ function WallSector({ index }: { index: number }): null {
   return null
 }
 
-export function CircuitPhysics({ sectors = 24 }: { sectors?: number }): JSX.Element {
+export function CircuitPhysics({ sectors = WALL_SECTORS }: { sectors?: number }): JSX.Element {
   const { scene } = useGLTF(asset(CIRCUIT_MODEL), DRACO_PATH)
 
   const surfaces = useMemo(() => {
