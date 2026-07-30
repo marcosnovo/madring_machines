@@ -1,134 +1,160 @@
 /**
- * The circuit, generated at runtime — asphalt, kerbs, run-off, tunnels, the
- * start/finish line and its gantry. Replaces the baked desert `.glb` the
- * upstream project shipped.
+ * The circuit, rendered from the 3D model.
+ *
+ *   "Circuito de Madring 2026 layout" by Dave Love SketchFab
+ *   https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
+ *   Licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+ *
+ * This replaces the procedural road ribbon that used to be generated here. The
+ * model brings the asphalt, kerbs, painted lines, tyre marks, walls, fences,
+ * pit building, grandstands, floodlights, trees, signage and the surrounding
+ * city, which is rather more than a swept cross-section was ever going to.
+ *
+ * The .glb is built by scripts/build-circuit-model.mjs: the alignment transform
+ * is baked into the file, every mesh that spans more than a few hundred metres
+ * is cut into 256 m tiles so frustum culling has something to reject, textures
+ * are WebP and the geometry is Draco.
+ *
+ * Nothing here collides — see CircuitPhysics.
  */
-import { useLayoutEffect, useMemo } from 'react'
-import { CanvasTexture, DoubleSide, NearestFilter, RepeatWrapping, Vector3 } from 'three'
+import { useGLTF } from '@react-three/drei'
+import { useLayoutEffect, useMemo, useRef } from 'react'
+import { DoubleSide, FrontSide } from 'three'
 
-import {
-  apronGeometry,
-  asphaltGeometry,
-  bandGeometry,
-  kerbGeometry,
-  tunnelGeometry,
-  wallGeometry,
-} from '../../circuit/geometry'
-import { getLayout, pointAt } from '../../circuit/layout'
+import type { Group, Mesh, MeshStandardMaterial, Object3D } from 'three'
+
+import { asset } from '../../assets'
+import { getLayout } from '../../circuit/layout'
+import { DRACO_PATH } from '../../draco'
 import { levelLayer, useStore } from '../../store'
 
-const ASPHALT = '#33363c'
-const RUNOFF = '#4f6b34'
-const CONCRETE = '#9aa0a6'
+export const CIRCUIT_MODEL = 'models/circuit-draco.glb'
 
-/** Black/white checker, drawn once into a canvas — nothing is fetched. */
-function useCheckerTexture(): CanvasTexture {
-  return useMemo(() => {
-    const size = 64
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = size
-    const ctx = canvas.getContext('2d')!
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, size, size)
-    ctx.fillStyle = '#141414'
-    ctx.fillRect(0, 0, size / 2, size / 2)
-    ctx.fillRect(size / 2, size / 2, size / 2, size / 2)
-    const texture = new CanvasTexture(canvas)
-    texture.wrapS = texture.wrapT = RepeatWrapping
-    texture.repeat.set(12, 1)
-    texture.magFilter = texture.minFilter = NearestFilter
-    return texture
-  }, [])
+/** Cut-out foliage, crowd and chain-link: alpha tested, and visible from both
+ *  sides because they are modelled as single-sided cards. */
+const CUTOUT = /^(Maple|Cypress|wire_fence|gstand-alpha|top)/
+/** The road surface itself. It does not cast shadows — it is flat on the
+ *  ground and would only shadow-acne itself. */
+const GROUND = /^(TarmacDark|Line_|tyre_skids|main_kerbs|rubber|sandgreen|green2|BackColor2|Background)/
+/** What the minimap draws. Everything else is left off `levelLayer`, or the
+ *  minimap would be a picture of the whole city. */
+const ON_MAP = /^(TarmacDark|main_kerbs|Line_White)/
+
+export interface CircuitStats {
+  meshes: number
+  triangles: number
+  materials: number
 }
 
-function StartGantry(): JSX.Element {
-  const layout = getLayout()
-  const { post, beam } = useMemo(() => {
-    const s = layout.samples[layout.startIndex]
-    const yaw = Math.atan2(-s.t.x, -s.t.z)
-    const span = s.halfWidth + 2.5
-    const left = pointAt(s, -span, 0, new Vector3())
-    const right = pointAt(s, span, 0, new Vector3())
-    const mid = pointAt(s, 0, 0, new Vector3())
-    return {
-      post: [left, right].map((p) => ({ position: [p.x, p.y + 4, p.z] as const, rotation: [0, yaw, 0] as const })),
-      beam: { position: [mid.x, mid.y + 8.4, mid.z] as const, rotation: [0, yaw, 0] as const, width: span * 2 + 1 },
-    }
-  }, [layout])
-
-  return (
-    <group>
-      {post.map((p, i) => (
-        <mesh key={i} position={p.position as unknown as [number, number, number]} rotation={p.rotation as unknown as [number, number, number]} castShadow>
-          <boxGeometry args={[0.8, 8, 0.8]} />
-          <meshStandardMaterial color={CONCRETE} roughness={0.8} />
-        </mesh>
-      ))}
-      <mesh position={beam.position as unknown as [number, number, number]} rotation={beam.rotation as unknown as [number, number, number]} castShadow>
-        <boxGeometry args={[beam.width, 1.4, 0.7]} />
-        <meshStandardMaterial color="#c8102e" roughness={0.6} />
-      </mesh>
-    </group>
-  )
-}
+/** Counted once at load, so performance can be reported as numbers not vibes. */
+export let circuitStats: CircuitStats = { meshes: 0, triangles: 0, materials: 0 }
 
 export function Circuit(): JSX.Element {
   const level = useStore((state) => state.level)
+  const { scene } = useGLTF(asset(CIRCUIT_MODEL), DRACO_PATH)
   const layout = getLayout()
-  const checker = useCheckerTexture()
 
-  const geometries = useMemo(
-    () => ({
-      asphalt: asphaltGeometry(layout),
-      kerbLeft: kerbGeometry(layout, -1),
-      kerbRight: kerbGeometry(layout, 1),
-      apronLeft: apronGeometry(layout, -1),
-      apronRight: apronGeometry(layout, 1),
-      startLine: bandGeometry(layout, layout.startIndex, 2.6),
-      wallLeft: wallGeometry(layout, -1),
-      wallRight: wallGeometry(layout, 1),
-      tunnels: layout.tunnels.map((section) => tunnelGeometry(layout, section)),
-    }),
-    [layout],
-  )
+  // The loader caches the parsed scene, so mutate it once and reuse it.
+  const prepared = useMemo(() => {
+    const materials = new Set<MeshStandardMaterial>()
+    let meshes = 0
+    let triangles = 0
 
-  // The minimap renders only objects on `levelLayer`.
-  useLayoutEffect(() => void level.current?.traverse((child) => child.layers.enable(levelLayer)), [])
+    scene.traverse((child: Object3D) => {
+      const mesh = child as Mesh
+      if (!mesh.isMesh) return
+      meshes++
+      const { geometry } = mesh
+      triangles += (geometry.index ? geometry.index.count : geometry.getAttribute('position').count) / 3
+
+      const material = mesh.material as MeshStandardMaterial
+      const name = material.name ?? ''
+
+      // Frustum culling is on by default; it only became worth anything once
+      // the build script tiled these meshes, and it needs a bounding sphere.
+      mesh.frustumCulled = true
+      if (!geometry.boundingSphere) geometry.computeBoundingSphere()
+
+      mesh.castShadow = !GROUND.test(name)
+      mesh.receiveShadow = true
+      mesh.layers.set(0)
+      if (ON_MAP.test(name)) mesh.layers.enable(levelLayer)
+
+      if (materials.has(material)) return
+      materials.add(material)
+      if (CUTOUT.test(name)) {
+        material.alphaTest = 0.5
+        material.transparent = false
+        material.side = DoubleSide
+        material.depthWrite = true
+      } else {
+        material.side = FrontSide
+      }
+      material.envMapIntensity = 0.5
+    })
+
+    circuitStats = { meshes, triangles: Math.round(triangles), materials: materials.size }
+    return scene
+  }, [scene])
+
+  useLayoutEffect(() => {
+    if (!import.meta.env.DEV) return
+    const w = window as unknown as { __circuit?: CircuitStats & { lap: number } }
+    w.__circuit = { ...circuitStats, lap: layout.lapLength }
+  }, [layout, prepared])
 
   return (
     <group dispose={null}>
+      <primitive object={prepared} />
       <group ref={level}>
-        <mesh geometry={geometries.apronLeft} receiveShadow>
-          <meshStandardMaterial color={RUNOFF} roughness={1} />
-        </mesh>
-        <mesh geometry={geometries.apronRight} receiveShadow>
-          <meshStandardMaterial color={RUNOFF} roughness={1} />
-        </mesh>
-        <mesh geometry={geometries.asphalt} receiveShadow>
-          <meshStandardMaterial color={ASPHALT} roughness={0.92} metalness={0} />
-        </mesh>
-        <mesh geometry={geometries.kerbLeft} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.55} />
-        </mesh>
-        <mesh geometry={geometries.kerbRight} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.55} />
-        </mesh>
-        <mesh geometry={geometries.wallLeft} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.7} side={DoubleSide} />
-        </mesh>
-        <mesh geometry={geometries.wallRight} receiveShadow castShadow>
-          <meshStandardMaterial vertexColors roughness={0.7} side={DoubleSide} />
-        </mesh>
-        <mesh geometry={geometries.startLine}>
-          <meshStandardMaterial map={checker} roughness={0.7} polygonOffset polygonOffsetFactor={-4} depthWrite={false} />
-        </mesh>
+        <MinimapRoad />
       </group>
-      {geometries.tunnels.map((geometry, i) => (
-        <mesh key={i} geometry={geometry} castShadow receiveShadow>
-          <meshStandardMaterial color={CONCRETE} roughness={0.9} side={DoubleSide} />
-        </mesh>
-      ))}
-      <StartGantry />
     </group>
   )
 }
+
+/**
+ * A flat ribbon down the middle of the measured road, on `levelLayer` only, so
+ * the minimap has a clean picture of the circuit and a bounding box that is the
+ * circuit rather than the whole model. The main camera never sees it.
+ */
+function MinimapRoad(): JSX.Element {
+  const layout = getLayout()
+  const { positions, indices } = useMemo(() => {
+    const { samples } = layout
+    const n = samples.length
+    const position = new Float32Array(n * 2 * 3)
+    const index: number[] = []
+    for (let i = 0; i < n; i++) {
+      const s = samples[i]
+      const half = Math.min(12, (s.edgeLeft + s.edgeRight) / 2)
+      for (let c = 0; c < 2; c++) {
+        const side = c === 0 ? -1 : 1
+        const o = (i * 2 + c) * 3
+        position[o] = s.p.x + s.r.x * side * half
+        position[o + 1] = s.p.y + 0.5
+        position[o + 2] = s.p.z + s.r.z * side * half
+      }
+      const j = ((i + 1) % n) * 2
+      index.push(i * 2, i * 2 + 1, j, i * 2 + 1, j + 1, j)
+    }
+    return { positions: position, indices: new Uint32Array(index) }
+  }, [layout])
+
+  const mesh = useRef<Mesh>(null)
+  useLayoutEffect(() => void mesh.current?.layers.set(levelLayer), [])
+
+  return (
+    <mesh ref={mesh}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="index" args={[indices, 1]} />
+      </bufferGeometry>
+      <meshBasicMaterial color="#e8eaed" toneMapped={false} />
+    </mesh>
+  )
+}
+
+useGLTF.preload(asset(CIRCUIT_MODEL), DRACO_PATH)
+
+export type { Group }

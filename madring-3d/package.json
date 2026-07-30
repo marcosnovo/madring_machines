@@ -1,7 +1,7 @@
 {
   "name": "madring-3d",
   "version": "0.1.0",
-  "description": "3D circuit racing mode — a derivative of @pmndrs/racing-game / colyseus/react-racing-game",
+  "description": "3D circuit racing mode \u2014 a derivative of @pmndrs/racing-game / colyseus/react-racing-game",
   "keywords": [
     "physics",
     "cannon-es",
@@ -24,6 +24,7 @@
     "zustand": "^3.7.0"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.4.2",
     "@types/lodash-es": "^4.17.6",
     "@types/react": "^18.0.5",
     "@types/react-dom": "^18.0.1",
@@ -48,7 +49,10 @@
     "eslint": "eslint --cache src",
     "eslint-fix": "eslint --fix --cache src",
     "prettier": "prettier --list-different '**/*.{js,jsx,md,ts,tsx}'",
-    "prettier-fix": "prettier --write '**/*.{js,jsx,md,ts,tsx}'"
+    "prettier-fix": "prettier --write '**/*.{js,jsx,md,ts,tsx}'",
+    "build:fit": "node scripts/fit-circuit.mjs",
+    "build:model": "node scripts/build-circuit-model.mjs",
+    "build:assets": "npm run build:fit && npm run build:model"
   },
   "browserslist": [
     ">0.2%",
