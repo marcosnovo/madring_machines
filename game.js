@@ -104,6 +104,7 @@ const TRACKS = [
         // where the two legs run side by side) wider than the road.
         //   world 1334 x 2033 px · 1.0244 px/m · lap 5415 m
         name: 'MADRING', theme: 'madrid',
+        seed: 23,
         music: MUSIC.spanish,
         W: 1334, H: 2033,
         rw: 46,
@@ -143,6 +144,7 @@ const TRACKS = [
     },
     {
         name: 'SIDEWINDER',
+        seed: 0,
         music: MUSIC.racingSpeed,
         groundDecor: 'ants',
         cp: [
@@ -156,6 +158,7 @@ const TRACKS = [
     },
     {
         name: 'FANDANGO',
+        seed: 1,
         music: MUSIC.speedCycling,
         groundDecor: 'spiders',
         cp: [
@@ -168,6 +171,7 @@ const TRACKS = [
     },
     {
         name: 'WIPEOUT', theme: 'asian',
+        seed: 2,
         music: MUSIC.asian,
         cp: [
             {x:512,y:700},{x:780,y:680},{x:920,y:540},{x:880,y:360},
@@ -179,6 +183,7 @@ const TRACKS = [
     },
     {
         name: 'BLASTER',
+        seed: 3,
         music: MUSIC.speedAction,
         groundDecor: 'daisies',
         cp: [
@@ -192,6 +197,7 @@ const TRACKS = [
     },
     {
         name: 'HUEVOS GRANDE',
+        seed: 4,
         music: MUSIC.african,
         groundDecor: 'mushrooms',
         cp: [
@@ -205,6 +211,7 @@ const TRACKS = [
     },
     {
         name: 'CLIFFHANGER', theme: 'soccer',
+        seed: 5,
         music: MUSIC.soccer,
         cp: [
             {x:400,y:700},{x:650,y:710},{x:870,y:650},{x:940,y:500},
@@ -217,6 +224,7 @@ const TRACKS = [
     },
     {
         name: 'BIG DUKES',
+        seed: 6,
         music: MUSIC.speedRacing,
         groundDecor: 'cigarettes',
         cp: [
@@ -230,6 +238,7 @@ const TRACKS = [
     },
     {
         name: 'HURRICANE GULCH', theme: 'halloween',
+        seed: 7,
         music: MUSIC.halloween,
         cp: [
             {x:450,y:700},{x:700,y:700},{x:880,y:620},{x:930,y:460},
@@ -242,6 +251,7 @@ const TRACKS = [
     },
     {   // 8 ── SAFARI RUSH — Monaco-inspired: tight hairpins, narrow, many direction changes
         name: 'SAFARI RUSH', theme: 'african',
+        seed: 8,
         music: MUSIC.african2,
         cp: [
             {x:512,y:678},{x:748,y:660},{x:888,y:540},{x:908,y:375},{x:835,y:242},
@@ -253,6 +263,7 @@ const TRACKS = [
     },
     {   // 9 ── DESERT MIRAGE — Bahrain/Abu Dhabi inspired: long straights, sharp hairpins
         name: 'DESERT MIRAGE', theme: 'arabic',
+        seed: 9,
         music: MUSIC.arabic,
         cp: [
             {x:512,y:685},{x:740,y:678},{x:890,y:598},{x:925,y:445},{x:875,y:295},
@@ -264,6 +275,7 @@ const TRACKS = [
     },
     {   // 10 ── COPACABANA CRUNCH — Interlagos inspired: counter-clockwise with S-curves
         name: 'COPACABANA CRUNCH', theme: 'brazil',
+        seed: 10,
         music: MUSIC.brazil,
         cp: [
             {x:512,y:692},{x:295,y:672},{x:162,y:552},{x:148,y:398},{x:238,y:265},
@@ -275,6 +287,7 @@ const TRACKS = [
     },
     {   // 11 ── LONE STAR RALLY — COTA inspired: big sweeping T1, tight S-curves
         name: 'LONE STAR RALLY', theme: 'country',
+        seed: 11,
         music: MUSIC.country,
         cp: [
             {x:512,y:678},{x:758,y:655},{x:905,y:518},{x:882,y:358},{x:762,y:238},
@@ -286,6 +299,7 @@ const TRACKS = [
     },
     {   // 12 ── JINGLE RALLY — Nürburgring inspired: very winding, many direction changes
         name: 'JINGLE RALLY', theme: 'christmas',
+        seed: 12,
         music: MUSIC.christmas,
         cp: [
             {x:512,y:675},{x:718,y:645},{x:860,y:502},{x:798,y:348},{x:882,y:228},
@@ -297,6 +311,7 @@ const TRACKS = [
     },
     {   // 13 ── CURRY CORNER — Indian city circuit with tunnel through building
         name: 'CURRY CORNER', theme: 'indian',
+        seed: 13,
         music: MUSIC.indian,
         cp: [
             {x:512,y:680},{x:738,y:658},{x:878,y:528},{x:848,y:368},{x:722,y:258},
@@ -309,6 +324,7 @@ const TRACKS = [
     },
     {   // 14 ── BELLA STRADA — Monza inspired: fast main straight + tight Ascari chicane
         name: 'BELLA STRADA', theme: 'italian',
+        seed: 14,
         music: MUSIC.italian,
         cp: [
             {x:512,y:678},{x:775,y:665},{x:912,y:548},{x:882,y:385},{x:735,y:258},
@@ -320,6 +336,7 @@ const TRACKS = [
     },
     {   // 15 ── LOOSE SLOPS — Las Vegas inspired: blocky 90° street corners, inner chicane
         name: 'LOOSE SLOPS', theme: 'casino',
+        seed: 15,
         music: MUSIC.casino,
         cp: [
             {x:512,y:678},{x:765,y:678},{x:918,y:562},{x:918,y:375},{x:808,y:248},
@@ -332,6 +349,7 @@ const TRACKS = [
     },
     {   // 16 ── SHAMROCK SPRINT — Irish rolling hills with tunnel through hilltop
         name: 'SHAMROCK SPRINT', theme: 'irish',
+        seed: 16,
         music: MUSIC.irish,
         cp: [
             {x:512,y:680},{x:732,y:652},{x:872,y:518},{x:898,y:358},{x:802,y:228},
@@ -344,6 +362,7 @@ const TRACKS = [
     },
     {   // 17 ── EL GRANDE LOOP — Mexico City inspired: outer loop + inner stadium section with tunnel
         name: 'EL GRANDE LOOP', theme: 'mexican',
+        seed: 17,
         music: MUSIC.mexican,
         cp: [
             {x:512,y:690},{x:748,y:668},{x:892,y:538},{x:898,y:372},{x:758,y:252},
@@ -356,6 +375,7 @@ const TRACKS = [
     },
     {   // 18 ── IRIE CIRCUIT — Reggae / Jamaica: winding circuit with two water-jump ramps
         name: 'IRIE CIRCUIT', theme: 'reggae',
+        seed: 18,
         music: MUSIC.reggae,
         cp: [
             {x:512,y:685},{x:735,y:655},{x:882,y:518},{x:858,y:345},{x:718,y:222},
@@ -375,6 +395,7 @@ const TRACKS = [
     },
     {   // 19 ── OLÉ DASH — Spain: arena-edge circuit with two water-jump ramps
         name: 'OL\u00c9 DASH', theme: 'spanish',
+        seed: 19,
         music: MUSIC.spanish,
         cp: [
             {x:512,y:682},{x:762,y:658},{x:898,y:528},{x:908,y:365},{x:832,y:248},
@@ -394,6 +415,7 @@ const TRACKS = [
     },
     {   // 20 ── JUNGLE JAMBOREE — Sepang/Singapore inspired: very winding + jungle tunnel
         name: 'JUNGLE JAMBOREE', theme: 'jungle',
+        seed: 20,
         music: MUSIC.jungle,
         cp: [
             {x:512,y:680},{x:718,y:655},{x:862,y:512},{x:848,y:342},{x:728,y:218},
@@ -407,6 +429,7 @@ const TRACKS = [
     {
         // ── SYNTHWAVE — giant multi-screen track ──
         name: 'NEON DRIVE',
+        seed: 21,
         synth: true,
         music: MUSIC.speedAction,   // shares BLASTER's driving theme — closest to synthwave
         W: SW_W, H: SW_H,
@@ -426,6 +449,7 @@ const TRACKS = [
     {
         // ── DESK CHAOS — procedurally generated, three laps, ~10× NEON DRIVE ──
         name: 'DESK CHAOS',
+        seed: 22,
         desk: true,
         music: MUSIC.racingSpeed,   // no desk-flavoured track in the library; keeps what it played before
         procedural: true,
@@ -1574,7 +1598,10 @@ class BootScene extends Phaser.Scene {
     }
 
     _genSingleTrack(t, idx) {
-        let seed = idx * 7919 + 42;
+        // Scenery scatter and pickup placement come out of this seed. It lives on
+        // the track, not on its index, so adding a track leaves every other one
+        // pixel-for-pixel as it was.
+        let seed = (t.seed !== undefined ? t.seed : idx) * 7919 + 42;
         function srand() { seed = (seed * 16807 + 0) % 2147483647; return (seed - 1) / 2147483646; }
             // Procedural tracks: build cp fresh each session
             if (t.procedural && !t.cp.length) generateDeskCp(t);
@@ -2894,22 +2921,33 @@ class BootScene extends Phaser.Scene {
                 vx.strokeStyle = '#47474f'; vx.lineWidth = t.rw - 14; drawPath(vx, wp); vx.stroke();
                 vx.strokeStyle = 'rgba(230,230,230,0.55)'; vx.lineWidth = 1.5;
                 vx.setLineDash([10, 16]); drawPath(vx, wp); vx.stroke(); vx.setLineDash([]);
+                t.mud.forEach(m => {                     // gravel dragged onto the surface
+                    const g = vx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r);
+                    g.addColorStop(0, 'rgba(120,100,60,0.9)'); g.addColorStop(1, 'rgba(120,100,60,0.15)');
+                    vx.fillStyle = g; vx.beginPath(); vx.arc(m.x, m.y, m.r, 0, Math.PI * 2); vx.fill();
+                });
                 // ── banked surface (same span the 'banking' circles cover in the mask) ──
                 if (t.bankWp) {
                     vx.strokeStyle = '#565660'; vx.lineWidth = t.rw; span(bank0, bank1); vx.stroke();
                     vx.strokeStyle = 'rgba(255,255,255,0.10)'; vx.lineWidth = t.rw - 16;
                     span(bank0, bank1); vx.stroke();                    // sheen off the camber
-                    // chevrons pointing the way round, the flat-out corner's signature
-                    for (let i = bank0 + 4; i < bank1 - 4; i += 12) {
-                        const p = wp[i % wp.length], q = wp[(i + 3) % wp.length];
-                        const a = Math.atan2(q.y - p.y, q.x - p.x);
-                        vx.save(); vx.translate(p.x, p.y); vx.rotate(a);
-                        vx.strokeStyle = 'rgba(255,214,120,0.55)'; vx.lineWidth = 3; vx.lineCap = 'butt';
+                    // radial slab seams across the camber — how a banked bowl
+                    // reads from above, and a cue that this surface is special
+                    vx.lineCap = 'butt';
+                    for (let i = bank0 + 3; i < bank1 - 3; i += 5) {
+                        const p = wp[i % wp.length], q = wp[(i + 2) % wp.length];
+                        const a = Math.atan2(q.y - p.y, q.x - p.x) + Math.PI / 2;
+                        const hw = t.rw / 2 - 2;
+                        vx.strokeStyle = 'rgba(230,230,240,0.22)'; vx.lineWidth = 1.5;
                         vx.beginPath();
-                        vx.moveTo(-7, -t.rw / 2 + 3); vx.lineTo(4, 0); vx.lineTo(-7, t.rw / 2 - 3);
-                        vx.stroke(); vx.restore();
+                        vx.moveTo(p.x - Math.cos(a) * hw, p.y - Math.sin(a) * hw);
+                        vx.lineTo(p.x + Math.cos(a) * hw, p.y + Math.sin(a) * hw);
+                        vx.stroke();
                     }
-                    vx.lineCap = 'round';
+                    // yellow centre line — the flat road's white dashes stop here
+                    vx.strokeStyle = 'rgba(240,196,80,0.8)'; vx.lineWidth = 2;
+                    vx.setLineDash([12, 12]); span(bank0, bank1); vx.stroke();
+                    vx.setLineDash([]); vx.lineCap = 'round';
                     const lp = wp[bank1 % wp.length];
                     vx.fillStyle = 'rgba(25,25,30,0.7)'; vx.font = 'bold 15px monospace';
                     vx.textAlign = 'left'; vx.fillText('LA MONUMENTAL', lp.x + 34, lp.y + 30);

@@ -7,6 +7,11 @@
 #   theme       — visual and aesthetic style of the track
 
 maps:
+  - id: madring
+    name: MADRING
+    inspiration: "IFEMA-Valdebebas street course, Madrid — layout derived from the real circuit's published centreline geodata, scaled to a 1334x2033 world"
+    theme: "Madrid street course — La Monumental banked bowl, two tunnels, IFEMA halls and dry meseta scrub"
+
   - id: sidewinder
     name: SIDEWINDER
     inspiration: Classic Micro Machines top-down circuit design
