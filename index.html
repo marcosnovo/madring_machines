@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro Machines</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; overflow: hidden; }
+        #game-container { width: 100vw; height: 100vh; }
+    </style>
+    <script>
+        // Handle screen orientation lock errors gracefully
+        window.addEventListener('unhandledrejection', (event) => {
+            if (event.reason && event.reason.name === 'NotSupportedError' && 
+                event.reason.message && event.reason.message.includes('screen.orientation.lock')) {
+                event.preventDefault();
+                console.warn('Screen orientation lock not supported on this device');
+            }
+        });
+    </script>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script src="dist/bundle.js"></script>
+</body>
+</html>

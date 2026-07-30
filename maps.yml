@@ -1,0 +1,123 @@
+# Micro Machines — Map Configuration
+# Each entry corresponds (in order) to a track in the TRACKS array in game.js.
+# Fields:
+#   id          — slug used for the screenshot filename (map-{id}.png)
+#   name        — display name (must match the name in game.js)
+#   inspiration — real-world circuit or game that inspired the layout/setting
+#   theme       — visual and aesthetic style of the track
+
+maps:
+  - id: sidewinder
+    name: SIDEWINDER
+    inspiration: Classic Micro Machines top-down circuit design
+    theme: Green grass and asphalt
+
+  - id: fandango
+    name: FANDANGO
+    inspiration: Classic Micro Machines top-down circuit design
+    theme: Green grass and asphalt
+
+  - id: wipeout
+    name: WIPEOUT
+    inspiration: "Wipeout (Psygnosis, 1995) anti-gravity racer — name nod; classic top-down layout"
+    theme: Japanese cherry blossom park with pagoda silhouettes
+
+  - id: blaster
+    name: BLASTER
+    inspiration: Classic Micro Machines top-down circuit design
+    theme: Green grass and asphalt
+
+  - id: huevos-grande
+    name: HUEVOS GRANDE
+    inspiration: Classic Micro Machines top-down circuit design
+    theme: Green grass and asphalt
+
+  - id: cliffhanger
+    name: CLIFFHANGER
+    inspiration: "Ibrox Stadium, Glasgow — Rangers vs Celtic Old Firm Derby"
+    theme: Football pitch with centre circle and penalty boxes
+
+  - id: big-dukes
+    name: BIG DUKES
+    inspiration: "The Dukes of Hazzard (TV series, 1979–85)"
+    theme: Green grass and asphalt
+
+  - id: hurricane-gulch
+    name: HURRICANE GULCH
+    inspiration: Halloween seasonal event tracks in Micro Machines and Forza Horizon
+    theme: Halloween night — pumpkins, purple sky, glowing slime
+
+  - id: safari-rush
+    name: SAFARI RUSH
+    inspiration: "Monaco Grand Prix — tight hairpins and narrow street circuit"
+    theme: African savanna
+
+  - id: desert-mirage
+    name: DESERT MIRAGE
+    inspiration: "Bahrain International Circuit / Yas Marina Circuit (Abu Dhabi F1)"
+    theme: Arabian desert
+
+  - id: copacabana-crunch
+    name: COPACABANA CRUNCH
+    inspiration: "Autódromo José Carlos Pace (Interlagos), São Paulo — Brazil F1"
+    theme: Brazilian carnival
+
+  - id: lone-star-rally
+    name: LONE STAR RALLY
+    inspiration: "Circuit of the Americas (COTA), Austin, Texas"
+    theme: American country / Texas
+
+  - id: jingle-rally
+    name: JINGLE RALLY
+    inspiration: "Nürburgring Nordschleife — winding and highly technical layout"
+    theme: Christmas / winter holiday
+
+  - id: curry-corner
+    name: CURRY CORNER
+    inspiration: Indian street circuit with a tunnel through a building
+    theme: India — Bollywood and Diwali
+
+  - id: bella-strada
+    name: BELLA STRADA
+    inspiration: "Autodromo Nazionale Monza — fast main straight with Ascari chicane"
+    theme: Italy
+
+  - id: loose-slops
+    name: LOOSE SLOPS
+    inspiration: "Las Vegas Strip Circuit (F1, 2023) — 90° street corners and inner chicane"
+    theme: Casino / Las Vegas
+
+  - id: shamrock-sprint
+    name: SHAMROCK SPRINT
+    inspiration: Irish road racing circuits with a hilltop tunnel
+    theme: Ireland — rolling green hills
+
+  - id: el-grande-loop
+    name: EL GRANDE LOOP
+    inspiration: "Autódromo Hermanos Rodríguez, Mexico City Grand Prix"
+    theme: Mexico — Day of the Dead and Mariachi
+
+  - id: irie-circuit
+    name: IRIE CIRCUIT
+    inspiration: Original layout with water-jump ramps
+    theme: Jamaica — reggae and island vibes
+
+  - id: ole-dash
+    name: OLÉ DASH
+    inspiration: Spanish arena-edge street circuit
+    theme: Spain — flamenco and bullfighting arena
+
+  - id: jungle-jamboree
+    name: JUNGLE JAMBOREE
+    inspiration: "Sepang International Circuit (Malaysia F1) / Singapore Street Circuit"
+    theme: Tropical jungle with monkeys and hanging vines
+
+  - id: neon-drive
+    name: NEON DRIVE
+    inspiration: "OutRun (Sega, 1986) — multi-screen synthwave aesthetic"
+    theme: 1980s synthwave / retrowave neon grid
+
+  - id: desk-chaos
+    name: DESK CHAOS
+    inspiration: "Micro Machines (Codemasters, 1991) — kitchen table and desk levels"
+    theme: Office desk — procedurally generated layout (different every run)
