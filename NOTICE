@@ -38,6 +38,15 @@ Music — MFCC, via Pixabay
     Licensed under the Pixabay Content License.
     All 21 .mp3 files under music/ are covered by this entry.
 
+Circuit centreline — Tomislav Bacinger, "f1-circuits"
+    https://github.com/bacinger/f1-circuits
+    Licensed under the MIT License.
+    circuits/es-2026.geojson supplies 116 lat/lon points of the Circuito de
+    Madring centreline (declared length 5474 m). The MADRING track's control
+    points are derived from it by scripts/madring-from-geojson.js — projected
+    to a local metric plane, scaled and resampled. No file from that project
+    is redistributed here; only the derived coordinates.
+
 Game framework — Phaser 3
     https://phaser.io/
     Copyright (c) Richard Davey / Phaser Studio Inc., MIT License.
