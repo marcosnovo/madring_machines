@@ -3922,6 +3922,13 @@ class PlayerSelectScene extends Phaser.Scene {
     }
 }
 
+// Touch-capable device? Menus already work via Phaser's pointer events
+// (fired for mouse AND touch alike), but actual driving is keyboard-only —
+// this gates the on-screen control overlay so desktop players never see it.
+function isTouchDevice() {
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
 // ── RACE SCENE ──────────────────────────────────────────────
 class RaceScene extends Phaser.Scene {
     constructor() { super('RaceScene'); }
@@ -4109,6 +4116,20 @@ class RaceScene extends Phaser.Scene {
         // HUD
         this.buildHUD();
 
+        // on-screen touch controls (phones/tablets only — desktop sees nothing new)
+        this.touchUI = isTouchDevice();
+        if (this.touchUI) this.buildTouchControls();
+
+        // Reset any stuck key state left over from a previous race (real
+        // key or touch button) so a fresh race never starts mid-throttle.
+        this.events.once('shutdown', () => {
+            this.cur.left.isDown = false;
+            this.cur.right.isDown = false;
+            this.cur.up.isDown = false;
+            this.cur.down.isDown = false;
+            this.spc.isDown = false;
+        });
+
         // camera follow for multi-screen tracks
         if (this.isBig) {
             this.cameras.main.startFollow(this.trucks[0].spr, true, 0.12, 0.12);
@@ -4179,6 +4200,107 @@ class RaceScene extends Phaser.Scene {
             }
             this.miniG.closePath(); this.miniG.strokePath();
         }
+    }
+
+    // ── Touch controls (mobile) ──────────────────────────────
+    // Each on-screen zone drives the *same* Phaser Key objects drivePlayer()
+    // already reads (this.cur.left/right/up/down.isDown, this.spc). Nothing
+    // downstream — drivePlayer, physics, the AI — needs to know touch exists.
+    //
+    // Key.isDown is a plain property the keyboard plugin only ever writes in
+    // response to a real hardware keydown/keyup event, so setting it directly
+    // from a touch handler is safe and is the standard way Phaser mobile
+    // ports fake keyboard input. The one wrinkle is nitro: drivePlayer checks
+    // Phaser.Input.Keyboard.JustDown(this.spc), which reads the Key's private
+    // `_justDown` latch rather than `isDown` — that latch is normally only
+    // set by the real keydown handler, so a touch press has to set it too.
+    //
+    // A real key and a touch button can race each other (e.g. releasing the
+    // touch button while the hardware arrow key is still physically held
+    // will incorrectly clear isDown). This is an arcade racer, not a fighting
+    // game — that's an acceptable, deliberately-unfixed edge case rather than
+    // tracking a separate held-state layer above isDown for two input
+    // sources that in practice are never used together by the same player.
+    buildTouchControls() {
+        this.touchZones = [];
+
+        // Multi-touch: a player must be able to hold accelerate + steer +
+        // nitro at once. The Phaser game config already raises
+        // input.activePointers so simultaneous touches are all tracked.
+
+        // Mini-map (isBig tracks only) sits bottom-right and its height
+        // depends on the track's own aspect ratio (buildHUD already sized
+        // and positioned it into this.miniY/this.miniH before we run). Keep
+        // the whole right-hand cluster — all one row, radius 82 at most —
+        // clear of its top edge rather than assuming a fixed size.
+        const clusterR = 82;
+        let rightY = GH - 90;
+        if (this.isBig && this.miniY != null) {
+            rightY = Math.min(rightY, this.miniY - clusterR - 16);
+        }
+
+        const zone = (cx, cy, r, color, label, onDown, onUp, fontSize) => {
+            const circle = this.add.circle(cx, cy, r, color, 0.30)
+                .setStrokeStyle(2, 0xffffff, 0.4)
+                .setDepth(200).setScrollFactor(0)
+                .setInteractive({ useHandCursor: false });
+            const txt = this.add.text(cx, cy, label, {
+                fontSize: fontSize || '13px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fff',
+            }).setOrigin(0.5).setDepth(201).setScrollFactor(0).setAlpha(0.6);
+            const press = () => { circle.setFillStyle(color, 0.65).setScale(1.08); txt.setAlpha(0.95); onDown(); };
+            const release = () => { circle.setFillStyle(color, 0.30).setScale(1.0); txt.setAlpha(0.6); onUp(); };
+            circle.on('pointerdown', press);
+            circle.on('pointerup', release);
+            circle.on('pointerout', release);
+            circle.on('pointerupoutside', release);
+            this.touchZones.push(circle, txt);
+        };
+
+        // steering — bottom-left half, two side-by-side zones. Plain ASCII
+        // "<"/">" rather than Unicode arrow glyphs, which some mobile
+        // browsers' monospace fallback renders as blank tofu boxes.
+        zone(100, GH - 90, 64, 0x2a6dff, '<',
+            () => { this.cur.left.isDown = true; },
+            () => { this.cur.left.isDown = false; }, '36px');
+        zone(244, GH - 90, 64, 0x2a6dff, '>',
+            () => { this.cur.right.isDown = true; },
+            () => { this.cur.right.isDown = false; }, '36px');
+
+        // accelerate / brake / nitro — one row bottom-right (rather than
+        // stacking nitro above accelerate) so the cluster only ever needs
+        // ONE clearance check against the mini-map, not two against both
+        // the mini-map and the top HUD/leaderboard.
+
+        // accelerate — dominant zone, held most of the time
+        zone(GW - 100, rightY, clusterR, 0x00ff88, 'GAS',
+            () => { this.cur.up.isDown = true; },
+            () => { this.cur.up.isDown = false; });
+
+        // brake / reverse — smaller, to the left of accelerate
+        zone(GW - 260, rightY, 50, 0xff4444, 'BRK',
+            () => { this.cur.down.isDown = true; },
+            () => { this.cur.down.isDown = false; });
+
+        // nitro — distinct button further left, echoes the HUD's
+        // "NITRO: n" orange accent
+        zone(GW - 384, rightY, 52, 0xff6600, 'NITRO',
+            () => { this.spc.isDown = true; this.spc._justDown = true; },
+            () => { this.spc.isDown = false; });
+
+        // Portrait nudge — the track view is built for a 1024x768 landscape
+        // canvas; Phaser.Scale.FIT still renders it (letterboxed) in
+        // portrait, so nothing is broken, but it's small. Rather than lock
+        // orientation (unreliable/permission-gated on iOS Safari without a
+        // fullscreen gesture), just suggest rotating.
+        this.rotateHint = this.add.text(GW / 2, 70, 'ROTATE YOUR DEVICE FOR A BIGGER VIEW', {
+            fontSize: '15px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fff',
+            backgroundColor: '#000000',
+        }).setOrigin(0.5).setPadding(8, 4, 8, 4).setAlpha(0.75).setDepth(202).setScrollFactor(0);
+        this.touchZones.push(this.rotateHint);
+        const updateRotateHint = () => this.rotateHint.setVisible(this.scale.isPortrait);
+        updateRotateHint();
+        this.scale.on(Phaser.Scale.Events.RESIZE, updateRotateHint);
+        this.events.once('shutdown', () => this.scale.off(Phaser.Scale.Events.RESIZE, updateRotateHint));
     }
 
     update(time, delta) {
@@ -5496,6 +5618,12 @@ const config = {
     loader: {
         // Works better for local file:// runs (e.g. opening index.html directly).
         imageLoadType: 'HTMLImageElement',
+    },
+    input: {
+        // Default is 1 active pointer. On-screen touch controls need a
+        // player to hold accelerate + steer + nitro simultaneously with
+        // separate fingers — each needs its own tracked pointer.
+        activePointers: 4,
     },
     scene: [BootScene, MainMenuScene, TitleScene, PlayerSelectScene, TrackSelectScene, RaceScene, ResultsScene, ShopScene],
     scale: {
