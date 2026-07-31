@@ -15,6 +15,7 @@ import { Box3, Matrix4, Scene, Vector2, Vector3 } from 'three'
 
 import type { OrthographicCamera, WebGLRenderTarget, Sprite } from 'three'
 
+import { isTouchCapable } from '../controls/touchCapable'
 import { useStore, levelLayer } from '../store'
 
 const m = new Matrix4()
@@ -72,14 +73,23 @@ function MinimapTexture({ buffer }: { buffer: WebGLRenderTarget }): JSX.Element 
   return <OrthographicCameraComponent ref={camera} makeDefault={false} rotation={[-Math.PI / 2, 0, 0]} />
 }
 
-export function Minimap({ size = 200 }): JSX.Element {
+export function Minimap({ size }: { size?: number }): JSX.Element {
+  const [touch] = useState(isTouchCapable)
+  // Bottom-left is where the touch steer pad also has to live (thumb reach
+  // wants it in that corner), so on a phone the two just sat on top of each
+  // other. Top-center is otherwise empty in the touch HUD — clock/camera
+  // toggle are top-left, position board/boost are top-right — so the map
+  // moves there instead, a little smaller to match the rest of the compact
+  // touch HUD. Desktop, with no on-screen pedals to clash with, keeps the
+  // original bottom-left corner.
+  const mapSize = size ?? (touch ? 140 : 200)
   const player = useRef<Sprite>(null)
   const miniMap = useRef<Sprite>(null)
   const miniMapCamera = useRef<OrthographicCamera>(null)
   const [virtualScene] = useState(() => new Scene())
   const mask = useTexture('textures/mask.svg')
   const cursorTexture = useTexture('textures/cursor.svg')
-  const buffer = useFBO(size * 2, size * 2)
+  const buffer = useFBO(mapSize * 2, mapSize * 2)
   const {
     gl,
     camera,
@@ -88,7 +98,11 @@ export function Minimap({ size = 200 }): JSX.Element {
   } = useThree()
   const [, levelCenter, levelDimensions] = useLevelGeometricProperties()
   const chassisBody = useStore((state) => state.chassisBody)
-  const screenPosition = useMemo(() => new Vector3(width / -2 - size / -2 + 30, height / -2 - size / -2 + 30, 0), [height, width, size])
+  const screenPosition = useMemo(() => {
+    const margin = 30
+    if (touch) return new Vector3(0, height / 2 - mapSize / 2 - margin, 0)
+    return new Vector3(width / -2 - mapSize / -2 + margin, height / -2 - mapSize / -2 + margin, 0)
+  }, [height, width, mapSize, touch])
   const span = Math.max(levelDimensions.x, levelDimensions.z) || 1
 
   useFrame(() => {
@@ -104,7 +118,7 @@ export function Minimap({ size = 200 }): JSX.Element {
     if (chassisBody.current && player.current) {
       v.subVectors(chassisBody.current.getWorldPosition(playerPosition), levelCenter)
       player.current.quaternion.setFromRotationMatrix(m)
-      player.current.position.set(screenPosition.x + (v.x / span) * size, screenPosition.y - (v.z / span) * size, 0)
+      player.current.position.set(screenPosition.x + (v.x / span) * mapSize, screenPosition.y - (v.z / span) * mapSize, 0)
       chassisBody.current.getWorldDirection(playerRotation)
       spriteRotation.set(playerRotation.x, playerRotation.z)
       player.current.material.rotation = Math.PI / 2 - spriteRotation.angle()
@@ -118,10 +132,10 @@ export function Minimap({ size = 200 }): JSX.Element {
       {createPortal(
         <>
           <ambientLight intensity={1} />
-          <sprite ref={miniMap} position={screenPosition} scale={[size, size, 1]}>
+          <sprite ref={miniMap} position={screenPosition} scale={[mapSize, mapSize, 1]}>
             <spriteMaterial map={buffer.texture} alphaMap={mask} />
           </sprite>
-          <sprite ref={player} position={screenPosition} scale={[size / 20, size / 20, 1]}>
+          <sprite ref={player} position={screenPosition} scale={[mapSize / 20, mapSize / 20, 1]}>
             <spriteMaterial color="white" alphaMap={cursorTexture} />
           </sprite>
         </>,

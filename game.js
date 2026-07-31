@@ -3922,10 +3922,17 @@ class PlayerSelectScene extends Phaser.Scene {
     }
 }
 
-// Touch-capable device? Menus already work via Phaser's pointer events
+// Is this a phone/tablet? Menus already work via Phaser's pointer events
 // (fired for mouse AND touch alike), but actual driving is keyboard-only —
 // this gates the on-screen control overlay so desktop players never see it.
+//
+// `(pointer: coarse) and (hover: none)` asks about the PRIMARY pointer, not
+// just whether touch events exist: a touchscreen laptop's primary pointer is
+// its trackpad (fine, hover-capable) even though the screen also reports
+// touch, so plain `maxTouchPoints > 0` was showing the overlay to mouse
+// users on that hardware. A phone/tablet has no such fallback pointer.
 function isTouchDevice() {
+    if (window.matchMedia) return window.matchMedia('(pointer: coarse) and (hover: none)').matches;
     return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 }
 
