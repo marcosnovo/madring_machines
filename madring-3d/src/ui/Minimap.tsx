@@ -82,7 +82,7 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
   // moves there instead, a little smaller to match the rest of the compact
   // touch HUD. Desktop, with no on-screen pedals to clash with, keeps the
   // original bottom-left corner.
-  const mapSize = size ?? (touch ? 140 : 200)
+  const mapSize = size ?? (touch ? 118 : 200)
   const player = useRef<Sprite>(null)
   const miniMap = useRef<Sprite>(null)
   const miniMapCamera = useRef<OrthographicCamera>(null)
@@ -99,8 +99,12 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
   const [, levelCenter, levelDimensions] = useLevelGeometricProperties()
   const chassisBody = useStore((state) => state.chassisBody)
   const screenPosition = useMemo(() => {
+    // Tucked right against the top edge on touch — it's floating over the
+    // road/sky rather than tucked in a corner (every corner is already
+    // spoken for by a HUD element or a pedal), so the less of the forward
+    // view it needs, the better.
+    if (touch) return new Vector3(0, height / 2 - mapSize / 2 - 10, 0)
     const margin = 30
-    if (touch) return new Vector3(0, height / 2 - mapSize / 2 - margin, 0)
     return new Vector3(width / -2 - mapSize / -2 + margin, height / -2 - mapSize / -2 + margin, 0)
   }, [height, width, mapSize, touch])
   const span = Math.max(levelDimensions.x, levelDimensions.z) || 1
@@ -132,11 +136,23 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
       {createPortal(
         <>
           <ambientLight intensity={1} />
-          <sprite ref={miniMap} position={screenPosition} scale={[mapSize, mapSize, 1]}>
-            <spriteMaterial map={buffer.texture} alphaMap={mask} />
+          {/* The track render (buffer.texture) only draws the ribbon itself —
+              everywhere else is empty, so with nothing behind it the map was
+              only ever legible where the 3D world underneath happened to be
+              dark (a grandstand, the road). Over open sky it read as a few
+              stray white lines. This backdrop, same mask/size, one draw call
+              earlier and forced behind via renderOrder + depthTest={false}
+              (so it can't lose a depth fight with a coplanar sprite), gives
+              it the same dark HUD-panel look as the touch buttons, wherever
+              on screen it ends up. */}
+          <sprite renderOrder={0} position={screenPosition} scale={[mapSize, mapSize, 1]}>
+            <spriteMaterial color="#0a0c12" alphaMap={mask} opacity={0.82} transparent depthTest={false} />
           </sprite>
-          <sprite ref={player} position={screenPosition} scale={[mapSize / 20, mapSize / 20, 1]}>
-            <spriteMaterial color="white" alphaMap={cursorTexture} />
+          <sprite ref={miniMap} renderOrder={1} position={screenPosition} scale={[mapSize, mapSize, 1]}>
+            <spriteMaterial map={buffer.texture} alphaMap={mask} depthTest={false} />
+          </sprite>
+          <sprite ref={player} renderOrder={2} position={screenPosition} scale={[mapSize / 20, mapSize / 20, 1]}>
+            <spriteMaterial color="white" alphaMap={cursorTexture} depthTest={false} />
           </sprite>
         </>,
         virtualScene,
