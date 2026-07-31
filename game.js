@@ -1304,6 +1304,11 @@ class BootScene extends Phaser.Scene {
     constructor() { super('BootScene'); }
 
     preload() {
+        // Launched (not started), so it runs in parallel and outlives every
+        // scene transition after this — one button, alive for the whole
+        // session, rather than re-adding it to every one of the 8 scenes.
+        this.scene.launch('HudOverlayScene');
+
         this._createLoadingUI();
 
         this.load.on('progress', (value) => this._updateBar(value * 0.4));
@@ -3343,6 +3348,45 @@ class BootScene extends Phaser.Scene {
             requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
+    }
+}
+
+// ── HUD OVERLAY SCENE (persistent, launched once by BootScene) ──
+// A single fullscreen toggle button, alive for the whole session and drawn
+// on top of whatever scene is currently active — simpler than re-adding a
+// button to every one of the 8 scenes, and it means the toggle is available
+// on the menus too, not just mid-race.
+class HudOverlayScene extends Phaser.Scene {
+    constructor() { super('HudOverlayScene'); }
+
+    create() {
+        // Phaser wraps the Fullscreen API itself (config's `fullscreenTarget:
+        // 'parent'` already points it at #game-container). iOS Safari on
+        // iPhone has no Fullscreen API at all — `available` is false there —
+        // so the button just doesn't get drawn rather than sitting dead.
+        if (!this.sys.game.device.fullscreen.available) return;
+
+        const cx = GW / 2, r = 22;
+        const cy = GH - 40;
+        const circle = this.add.circle(cx, cy, r, 0x08090f, 0.55)
+            .setStrokeStyle(2, 0xffffff, 0.35)
+            .setScrollFactor(0).setDepth(1000)
+            .setInteractive({ useHandCursor: true });
+        const label = this.add.text(cx, cy, '⛶', {
+            fontSize: '20px', fontFamily: 'monospace', color: '#e8e6e1',
+        }).setOrigin(0.5).setScrollFactor(0).setDepth(1001);
+
+        const sync = () => label.setText(this.scale.isFullscreen ? '✕' : '⛶');
+        circle.on('pointerdown', () => {
+            if (this.scale.isFullscreen) this.scale.stopFullscreen();
+            else this.scale.startFullscreen();
+        });
+        this.scale.on(Phaser.Scale.Events.ENTER_FULLSCREEN, sync);
+        this.scale.on(Phaser.Scale.Events.LEAVE_FULLSCREEN, sync);
+        this.events.once('shutdown', () => {
+            this.scale.off(Phaser.Scale.Events.ENTER_FULLSCREEN, sync);
+            this.scale.off(Phaser.Scale.Events.LEAVE_FULLSCREEN, sync);
+        });
     }
 }
 
@@ -5632,7 +5676,12 @@ const config = {
         // separate fingers — each needs its own tracked pointer.
         activePointers: 4,
     },
-    scene: [BootScene, MainMenuScene, TitleScene, PlayerSelectScene, TrackSelectScene, RaceScene, ResultsScene, ShopScene],
+    // HudOverlayScene last: Phaser renders scenes in this array's order, so
+    // being registered after every gameplay scene is what keeps its button
+    // drawn on top of whichever one is currently active, regardless of when
+    // each was started/stopped (only the FIRST entry auto-starts; this one
+    // is launched explicitly from BootScene instead).
+    scene: [BootScene, MainMenuScene, TitleScene, PlayerSelectScene, TrackSelectScene, RaceScene, ResultsScene, ShopScene, HudOverlayScene],
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,

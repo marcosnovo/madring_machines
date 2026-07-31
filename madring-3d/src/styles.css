@@ -966,3 +966,30 @@ button {
     transform: rotate(-90deg);
   }
 }
+
+/* --------------- FULLSCREEN TOGGLE (ui/FullscreenButton.tsx) --------------- */
+/*
+ * Bottom-center: the one spot clear in both desktop and touch layouts. The
+ * pedal cluster and steer pad only rise as far as --pedal-clear, so
+ * everything below that (down to the true bottom edge) is open canvas on a
+ * phone; on desktop the whole bottom edge is free anyway. `env(...)` keeps
+ * it clear of the home-indicator gesture bar on notched phones in landscape.
+ */
+.fullscreen-toggle {
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(8, 10, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e8e6e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3em;
+  line-height: 1;
+  cursor: pointer;
+}
