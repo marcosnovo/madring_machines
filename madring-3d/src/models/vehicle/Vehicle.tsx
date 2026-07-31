@@ -15,11 +15,12 @@
  * constants are live-tunable from the leva panel (`.` — src/vehicle/tuning).
  */
 import { MathUtils, Vector3 } from 'three'
-import type { PerspectiveCamera } from 'three'
 import type { PropsWithChildren } from 'react'
+import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 
 import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Skid } from '../../effects'
+import { cameraRig } from '../../effects/Cameras'
 import { gamepad } from '../../controls/Gamepad'
 import type { Camera } from '../../store'
 import { getState, mutation, setState, useStore } from '../../store'
@@ -46,27 +47,32 @@ const PROBE_LONG = 1.8
 const PROBE_LAT = 0.8
 
 export function Vehicle({ children }: PropsWithChildren<unknown>) {
-  const defaultCamera = useThree((state) => state.camera)
   const [chassisBody, wheels] = useStore((s) => [s.chassisBody, s.wheels])
 
-  let accumulator = 0
   let camera: Camera
-  let prevCamera: Camera | null = null
-  let fov = tuning.fovBase
   let i = 0
   let isBoosting = false
-  let prevIdx = getPlayer().sampleIdx
   let speed = 0
   let speedFactor = 0
   let swaySpeed = 0
   let swayTarget = 0
-  let swayValue = 0
-  let swivel = 0
-  const wheelSpin = [0, 0, 0, 0]
-  // Lap bookkeeping, same semantics the old trigger walls had: a lap only
-  // counts if both sector checkpoints were passed first.
-  const passed = [false, false]
-  let started = false
+  // Everything the frame loop carries BETWEEN frames lives in one ref bag.
+  // This component re-renders whenever the default camera flips (useThree
+  // above selects it), and these used to be plain lets — so toggling the
+  // camera mid-lap reset the sector checkpoints and voided the lap.
+  const S = useRef({
+    accumulator: 0,
+    prevCamera: null as Camera | null,
+    fov: tuning.fovBase,
+    prevIdx: getPlayer().sampleIdx,
+    swayValue: 0,
+    swivel: 0,
+    wheelSpin: [0, 0, 0, 0],
+    // Lap bookkeeping, same semantics the old trigger walls had: a lap only
+    // counts if both sector checkpoints were passed first.
+    passed: [false, false],
+    started: false,
+  }).current
 
   useFrame((state, rawDelta) => {
     const delta = clampDelta(rawDelta)
@@ -90,9 +96,9 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       handbrake: controls.brake || gamepad.handbrake,
       boost: controls.boost || gamepad.boost,
     }
-    accumulator += delta
-    while (accumulator >= FIXED_DT) {
-      accumulator -= FIXED_DT
+    S.accumulator += delta
+    while (S.accumulator >= FIXED_DT) {
+      S.accumulator -= FIXED_DT
       // The race session steps the whole field — the player with this input
       // (held on the grid until lights-out), the AI cars with theirs — and
       // returns the player's events for the lap timing below.
@@ -101,36 +107,36 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       if (events.crossedSF > 0) {
         const now = Date.now()
         const { start } = getState()
-        if (started && start && passed.every(Boolean)) {
+        if (S.started && start && S.passed.every(Boolean)) {
           const lap = Math.max(now - start, 0)
           setState({ finished: lap })
           void insertScore({ name: 'You', time: lap })
         }
-        started = true
-        passed[0] = passed[1] = false
+        S.started = true
+        S.passed[0] = S.passed[1] = false
         setState({ start: now, _start: now })
       }
     }
 
     // ---- sector checkpoints ----------------------------------------------
     const N = track.N
-    let dd = player.sampleIdx - prevIdx
+    let dd = player.sampleIdx - S.prevIdx
     if (dd > N / 2) dd -= N
     if (dd < -N / 2) dd += N
     if (Math.abs(dd) > 40) {
       // teleport (reset key): resync without crossing anything
-      passed[0] = passed[1] = false
+      S.passed[0] = S.passed[1] = false
     } else if (dd > 0) {
       for (let sector = 0; sector < 2; sector++) {
         const threshold = Math.round(((sector + 1) / 3) * N)
-        const forward = (threshold - prevIdx + N) % N
+        const forward = (threshold - S.prevIdx + N) % N
         if (forward > 0 && forward <= dd) {
-          passed[sector] = true
+          S.passed[sector] = true
           getState().actions.onCheckpoint()
         }
       }
     }
-    prevIdx = player.sampleIdx
+    S.prevIdx = player.sampleIdx
 
     // ---- shared telemetry -------------------------------------------------
     speed = player.speed
@@ -163,11 +169,11 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       for (i = 0; i < 4; i++) {
         const wheel = wheels[i].current
         if (!wheel) continue
-        wheelSpin[i] += player.vehicle.wheels[i].omega * delta
-        if (wheelSpin[i] > Math.PI * 2) wheelSpin[i] -= Math.PI * 2
-        if (wheelSpin[i] < 0) wheelSpin[i] += Math.PI * 2
+        S.wheelSpin[i] += player.vehicle.wheels[i].omega * delta
+        if (S.wheelSpin[i] > Math.PI * 2) S.wheelSpin[i] -= Math.PI * 2
+        if (S.wheelSpin[i] < 0) S.wheelSpin[i] += Math.PI * 2
         wheel.rotation.y = i < 2 ? player.roadWheelAngle : 0
-        wheel.rotation.x = wheelSpin[i]
+        wheel.rotation.x = S.wheelSpin[i]
       }
     }
 
@@ -179,8 +185,8 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
     // to skip the cockpit camera entirely and show two chase views. On a mode
     // change the camera teleports to the new mode's pose this frame; the
     // easing only smooths motion *within* a mode.
-    const cameraSwitched = prevCamera !== camera
-    prevCamera = camera
+    const cameraSwitched = S.prevCamera !== camera
+    S.prevCamera = camera
     const steeringValue = player.roadWheelAngle
     if (camera !== 'BIRD_EYE') {
       if (camera === 'FIRST_PERSON') {
@@ -196,34 +202,37 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         )
       }
 
-      defaultCamera.position.lerp(v, cameraSwitched ? 1 : Math.min(1, delta * t.cameraEase))
-      const swivelTarget = (-steeringValue * speed) / (camera === 'DEFAULT' ? 26 : 60)
-      swivel = cameraSwitched ? swivelTarget : lerp(swivel, swivelTarget, Math.min(1, delta * 8))
+      const cam = cameraRig.persp
+      if (cam) {
+        cam.position.lerp(v, cameraSwitched ? 1 : Math.min(1, delta * t.cameraEase))
+        const swivelTarget = (-steeringValue * speed) / (camera === 'DEFAULT' ? 26 : 60)
+        S.swivel = cameraSwitched ? swivelTarget : lerp(S.swivel, swivelTarget, Math.min(1, delta * 8))
 
-      if ((defaultCamera as PerspectiveCamera).isPerspectiveCamera) {
         const fovTarget =
           camera === 'FIRST_PERSON' ? FOV_FIRST_PERSON + t.fovSpeed * 0.35 * speedFactor : t.fovBase + t.fovSpeed * speedFactor + (isBoosting ? t.fovBoost : 0)
-        fov = cameraSwitched ? fovTarget : lerp(fov, fovTarget, Math.min(1, delta * (isBoosting ? FOV_EASE * 2.5 : FOV_EASE)))
-        const perspective = defaultCamera as PerspectiveCamera
-        if (Math.abs(perspective.fov - fov) > 0.01) {
-          perspective.fov = fov
-          perspective.updateProjectionMatrix()
+        S.fov = cameraSwitched ? fovTarget : lerp(S.fov, fovTarget, Math.min(1, delta * (isBoosting ? FOV_EASE * 2.5 : FOV_EASE)))
+        if (Math.abs(cam.fov - S.fov) > 0.01) {
+          cam.fov = S.fov
+          cam.updateProjectionMatrix()
         }
+
+        // Sway + speed shake + wall-impact kick — written as a FULL rotation
+        // set, y = PI included. Writing only x/z is how the camera stayed
+        // facing backwards after the bird's-eye branch stomped y to 0.
+        swaySpeed = isBoosting ? 60 : 30
+        swayTarget = (isBoosting ? speedFactor * 8 : speedFactor * 3) + t.shake * speedFactor * speedFactor * 4
+        S.swayValue = isBoosting ? (speedFactor + 0.25) * 30 : MathUtils.lerp(S.swayValue, swayTarget, delta * 20)
+        const kick = player.impactKick * 40
+        cam.rotation.set(
+          (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * (S.swayValue + kick),
+          Math.PI,
+          S.swivel + (Math.sin(state.clock.elapsedTime * swaySpeed * 0.9) / 1000) * (S.swayValue + kick),
+        )
       }
     }
-
-    // Camera sway + speed shake + wall-impact kick. Assigned, not accumulated.
-    // Not applied to the bird's-eye camera, which looks straight down.
-    if (camera === 'BIRD_EYE') {
-      defaultCamera.rotation.set(-Math.PI / 2, 0, Math.PI)
-    } else {
-      swaySpeed = isBoosting ? 60 : 30
-      swayTarget = (isBoosting ? speedFactor * 8 : speedFactor * 3) + t.shake * speedFactor * speedFactor * 4
-      swayValue = isBoosting ? (speedFactor + 0.25) * 30 : MathUtils.lerp(swayValue, swayTarget, delta * 20)
-      const kick = player.impactKick * 40
-      defaultCamera.rotation.z = swivel + (Math.sin(state.clock.elapsedTime * swaySpeed * 0.9) / 1000) * (swayValue + kick)
-      defaultCamera.rotation.x = (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * (swayValue + kick)
-    }
+    // The bird's-eye camera needs no per-frame pose: its chassis-local
+    // placement from Cameras.tsx never changes, and it is never stomped now
+    // that this loop only ever writes cameraRig.persp.
   })
 
   const ToggledAccelerateAudio = useToggle(AccelerateAudio, ['ready', 'sound'])
