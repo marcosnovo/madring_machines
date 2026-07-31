@@ -17,7 +17,7 @@
 import { MathUtils, Vector3 } from 'three'
 import type { PropsWithChildren } from 'react'
 import { useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useFrame } from '@react-three/fiber'
 
 import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Skid } from '../../effects'
 import { cameraRig } from '../../effects/Cameras'
