@@ -3,12 +3,18 @@ import { useProgress } from '@react-three/drei'
 
 import type { ReactNode } from 'react'
 
+import { isTouchCapable } from '../controls/touchCapable'
 import { useStore } from '../store'
 import { Keys } from './Keys'
 
 export function Intro({ children }: { children: ReactNode }): JSX.Element {
   const [clicked, setClicked] = useState(false)
   const [loading, setLoading] = useState(true)
+  // Frozen at mount, same as TouchControls' own check — the keybinding legend
+  // below is meaningless on a device with no keyboard, and in a short
+  // landscape viewport its rows grow tall enough to sit over "Click to
+  // start" and eat the tap.
+  const [touch] = useState(isTouchCapable)
   const { progress } = useProgress()
   const set = useStore((state) => state.set)
 
@@ -26,13 +32,13 @@ export function Intro({ children }: { children: ReactNode }): JSX.Element {
       <div className={`fullscreen bg ${loading ? 'loading' : 'loaded'} ${clicked && 'clicked'}`}>
         <div className="stack">
           <div className="intro-keys">
-            <Keys style={{ paddingBottom: 20 }} />
+            {!touch && <Keys style={{ paddingBottom: 20 }} />}
             <p>
               {loading ? (
                 `loading ${progress.toFixed()} %`
               ) : (
                 <a className="start-link" href="#" onClick={() => setClicked(true)}>
-                  {'Click to start'}
+                  {touch ? 'Tap to start' : 'Click to start'}
                 </a>
               )}
             </p>

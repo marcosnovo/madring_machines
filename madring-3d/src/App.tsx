@@ -5,6 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Sky } from '@react-three/drei'
 
 import { GamepadInput, HideMouse, Keyboard, TouchControls } from './controls'
+import { isTouchCapable } from './controls/touchCapable'
 import { Cameras } from './effects'
 import { Ambient, Circuit, Crowd, OpponentCars, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
@@ -112,6 +113,14 @@ function App(): JSX.Element {
   // with the car still drivable while the panel is open.
   const ToggledEditor = useToggle(Editor, 'editor')
   const ToggledMap = useToggle(Minimap, 'map')
+
+  // Flags the root so styles.css can shrink the desktop-tuned HUD (clock,
+  // position board, speedometer) for the same devices TouchControls renders
+  // on — a phone screen has no room for both full-size HUD text and the
+  // touch pedals without one covering the other or blotting out the car.
+  useEffect(() => {
+    if (isTouchCapable()) document.documentElement.classList.add('touch-device')
+  }, [])
 
   return (
     <Intro>
