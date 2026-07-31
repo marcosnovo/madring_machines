@@ -45,6 +45,14 @@ export interface Tuning {
   steerFalloff: number
   /** Absolute cap on road-wheel angle, rad. */
   steerMax: number
+  /** Keyboard steering: attack rate towards the key, 1/s (speed-scaled). */
+  steerAttack: number
+  /** Keyboard steering: centre-return rate on release, 1/s (speed-scaled). */
+  steerReturn: number
+  /** Gamepad stick dead zone, 0..0.4. */
+  padDeadzone: number
+  /** Gamepad steering response curve exponent (1 = linear). */
+  padCurve: number
   /** Traction control. */
   tc: boolean
   /** Anti-lock brakes. */
@@ -90,6 +98,10 @@ export const TUNING_DEFAULTS: Tuning = {
   steerGain: 0.42,
   steerFalloff: 0.085,
   steerMax: 0.38,
+  steerAttack: 7.5,
+  steerReturn: 12,
+  padDeadzone: 0.12,
+  padCurve: 1.6,
   tc: true,
   abs: true,
   autoGear: true,

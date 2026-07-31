@@ -26,14 +26,21 @@ const C = {
 // ── DRIVERS ─────────────────────────────────────────────────
 // Original cast, Madrid-themed. The bear and the strawberry tree are the
 // city's coat of arms; a "gata" is a Madrid native of several generations;
-// Cibeles is the city's landmark fountain. All four avatars and car sprites
-// are drawn procedurally from simple shapes at boot (see genDrivers) — the
-// project ships no third-party character art.
+// Cibeles is the city's landmark fountain. The four avatars are drawn
+// procedurally from simple shapes at boot (see genDrivers). The four car
+// sprites are baked top-down renders of the 3D mode's formula car (APEX
+// FORMULA 2026, Apache-2.0 — see NOTICE), with the procedural cars kept as
+// a fallback. No third-party character art anywhere.
 const NAMES = ['OSO', 'GATA', 'CIBELES', 'MADROÑO'];
 const CHAR_COLORS = [0xd8892c, 0x4f8fe0, 0x46c2a8, 0xd8452f];
 const TCOLORS = [C.player, C.ai1, C.ai2, C.ai3];
 const PLAYER_IMGS = ['avatar_oso', 'avatar_gata', 'avatar_cibeles', 'avatar_madrono'];
 const CAR_SPRITES = ['car_oso', 'car_gata', 'car_cibeles', 'car_madrono'];
+// Baked top-down renders of the 3D mode's formula car, one per driver colour
+// (scripts/bake-car-sprites.js). Loaded in BootScene; genDrivers() draws its
+// procedural cars only for whichever of these fail to load.
+const CAR_SPRITE_FILES = ['images/car-oso.png', 'images/car-gata.png',
+                          'images/car-cibeles.png', 'images/car-madrono.png'];
 const TKEYS = ['player', 'ai1', 'ai2', 'ai3'];
 const PRIZES = [100000, 90000, 80000, 70000];
 
@@ -1305,14 +1312,19 @@ class BootScene extends Phaser.Scene {
             console.warn('Asset load failed:', file.key, file.src || 'unknown source');
         });
 
-        // No character art is loaded from disk — the four drivers' avatars and
-        // car sprites are generated from simple shapes in genDrivers().
-        //
-        // The one exception is the MADRING's ground: a real overhead view of
-        // the circuit, baked from a 3D model of it by
-        // scripts/madring-bake-overhead.js. See TRACKS[0] and NOTICE. If it
-        // fails to load the track falls back to drawing its own scenery, so a
-        // missing file costs art, not a playable track.
+        // The four car sprites are top-down renders of the same formula car
+        // the 3D mode drives (madring-3d/public/models/f1car-2026.glb, APEX
+        // FORMULA 2026, Apache-2.0 — see NOTICE), baked per driver colour by
+        // scripts/bake-car-sprites.js. If any file fails to load, genDrivers()
+        // notices the missing texture and draws its procedural car instead —
+        // same policy as the MADRING ground below: a missing file costs art,
+        // not a playable game. The portrait avatars are still procedural.
+        CAR_SPRITES.forEach((key, i) => this.load.image(key, CAR_SPRITE_FILES[i]));
+
+        // The MADRING's ground: a real overhead view of the circuit, baked
+        // from a 3D model of it by scripts/madring-bake-overhead.js. See
+        // TRACKS[0] and NOTICE. If it fails to load the track falls back to
+        // drawing its own scenery.
         this.load.image(MADRING_BG_KEY, MADRING_BG_SRC);
     }
 
@@ -1334,10 +1346,11 @@ class BootScene extends Phaser.Scene {
     }
 
     // ── DRIVERS (original art, generated from simple shapes) ─────────────
-    // Builds the four car sprites (car_*) and the four portrait avatars
-    // (avatar_*). Nothing here is loaded from disk, so the project carries no
-    // third-party character art. Cars are drawn nose-up because syncSprite()
-    // adds +90° to any texture whose key starts with "car_".
+    // Builds the four portrait avatars (avatar_*), and a car sprite (car_*)
+    // for any driver whose baked render (images/car-*.png, from the 3D
+    // mode's own formula car — see preload) did not load. Cars are drawn
+    // nose-up because syncSprite() adds +90° to any texture whose key starts
+    // with "car_".
     genDrivers() {
         const roundRect = (ctx, x, y, w, h, r) => {
             ctx.beginPath();
@@ -1450,6 +1463,12 @@ class BootScene extends Phaser.Scene {
         ];
 
         CHAR_COLORS.forEach((col, i) => {
+            // The baked render of the 3D mode's formula car loaded in
+            // preload() wins when it is present; everything below is the
+            // fallback for a missing/failed file, kept so the game never
+            // boots without four distinguishable cars.
+            if (this.textures.exists(CAR_SPRITES[i])) return;
+
             const cv = document.createElement('canvas');
             cv.width = CAR_W; cv.height = CAR_H;
             const ctx = cv.getContext('2d');
@@ -3630,6 +3649,16 @@ class MainMenuScene extends Phaser.Scene {
                 ],
             },
             {
+                // The car sprites are baked renders of this model; Apache-2.0
+                // asks for the licence notice (carried in NOTICE), the credit
+                // here is courtesy and consistency with the 3D mode.
+                header: 'CAR MODEL — APACHE 2.0',
+                entries: [
+                    { text: 'APEX FORMULA 2026 — Avi Hacker, J.D.',    color: '#fff' },
+                    { text: 'github.com/ahacker-1/apex-formula-2026',  color: '#888', small: true },
+                ],
+            },
+            {
                 header: 'GAME ASSETS — CC0',
                 entries: [
                     { text: 'Kenney — Racing Pack',         color: '#fff' },
@@ -3944,10 +3973,23 @@ class RaceScene extends Phaser.Scene {
                     .setDisplaySize(TRUCK_W, TRUCK_H),
                 x: sp.x, y: sp.y, a: sp.a, vx: 0, vy: 0,
                 isP, name: NAMES[ci], col: CHAR_COLORS[ci], imgKey: PLAYER_IMGS[ci], idx: i,
+                // Handling model (2026 grip pass — player and AI share it):
+                //   acc   px/frame² of throttle. 0.085 reaches 95% of top
+                //         speed in 0.68 s where the old 0.06 took 0.95 s.
+                //   hand  base steering rate in rad/frame; drivePlayer and
+                //         driveAI both scale it (by speed and skill
+                //         respectively). 0.048 turns a full-speed circle of
+                //         60 px radius vs the old 72.
+                //   stab  lateral-velocity retention per frame — LOWER is
+                //         grippier. 0.66 kills the old ice-drift (see
+                //         physics()); the SHOCKS upgrade now subtracts, i.e.
+                //         buys grip, where it used to add (which made the car
+                //         more slippery — almost certainly not what anyone
+                //         paying $60k a level expected).
                 maxSpd: isP ? 3.0 + gs.topSpeed * 0.25 : 3.0 + Math.min(gs.raceNum * 0.06, 2.0),
-                acc:    isP ? 0.06 + gs.acceleration * 0.008 : 0.06 + Math.min(gs.raceNum * 0.003, 0.04),
-                hand:   isP ? 0.038 + gs.tires * 0.003 : 0.038 + Math.min(gs.raceNum * 0.001, 0.015),
-                stab:   isP ? 0.85 + gs.shocks * 0.012 : 0.85 + Math.min(gs.raceNum * 0.004, 0.1),
+                acc:    isP ? 0.085 + gs.acceleration * 0.008 : 0.085 + Math.min(gs.raceNum * 0.003, 0.04),
+                hand:   isP ? 0.048 + gs.tires * 0.003 : 0.048 + Math.min(gs.raceNum * 0.001, 0.015),
+                stab:   isP ? 0.66 - gs.shocks * 0.012 : 0.66 - Math.min(gs.raceNum * 0.004, 0.08),
                 nitros: isP ? gs.nitros : 3 + Math.floor(gs.raceNum / 3),
                 nAct: false, nTmr: 0,
                 laps: 0, nxtCk: 0, fin: false, finPos: -1,
@@ -4208,8 +4250,15 @@ class RaceScene extends Phaser.Scene {
     drivePlayer(t, dt) {
         const spd = Math.hypot(t.vx, t.vy);
         const sf = Math.min(1, spd / (t.maxSpd * 0.6 + 0.01));
-        // drift mode: slightly wider steering arc to initiate oversteer
-        const steer = t.hand * dt * (opts.drift ? (0.75 + 0.75 * sf) : (0.55 + 0.55 * sf));
+        // Speed-scaled steering: plenty of yaw authority at low speed (nosing
+        // out of a hairpin, recovering from a wall) tapering as speed builds so
+        // the car stays planted on the straights. Measured against the old
+        // (0.55 + 0.55·sf) curve this turns a 2.5 px/f 90° corner in 0.57 s
+        // instead of 0.72 s — see the handling notes in physics() below.
+        // Drift mode keeps its original arc: its coefficients are scaled by
+        // 0.038/0.048 to cancel the `hand` base raise, so that mode is
+        // untouched by the grip pass.
+        const steer = t.hand * dt * (opts.drift ? (0.59 + 0.59 * sf) : (1.35 - 0.30 * sf));
         if (this.cur.left.isDown) t.a -= steer;
         if (this.cur.right.isDown) t.a += steer;
 
@@ -4223,9 +4272,10 @@ class RaceScene extends Phaser.Scene {
             const dx = Math.cos(t.a), dy = Math.sin(t.a);
             const fwd = t.vx * dx + t.vy * dy;
             if (fwd > 0) {
-                // braking
-                t.vx *= Math.pow(0.88, dt);
-                t.vy *= Math.pow(0.88, dt);
+                // braking — strong enough to matter before a corner:
+                // 3 px/f to walking pace in 0.27 s / 15 px
+                t.vx *= Math.pow(0.85, dt);
+                t.vy *= Math.pow(0.85, dt);
             } else {
                 // reverse
                 t.vx -= dx * t.acc * 0.5 * dt;
@@ -4346,16 +4396,27 @@ class RaceScene extends Phaser.Scene {
         const fwd = t.vx * fx + t.vy * fy;
         const lat = t.vx * rx + t.vy * ry;
 
-        // Drift mode: lower skid threshold — constant spectacular tire marks
-        const skidLat = opts.drift ? 0.25 : 1.0;
+        // Drift mode: lower skid threshold — constant spectacular tire marks.
+        // Normal mode: the grip pass (stab 0.85 → 0.66) keeps lateral velocity
+        // small, so the threshold sits just under the new grip limit — skids
+        // still appear when a corner is genuinely overdriven.
+        const skidLat = opts.drift ? 0.25 : 0.55;
         const skidSpd = opts.drift ? 0.35 : 1.2;
         if (t.isP && Math.abs(lat) > skidLat && Math.hypot(t.vx, t.vy) > skidSpd) {
             this.spawnSkid(t);
         }
 
-        // Drift mode: lower lateral friction — velocity lags behind heading = natural slide
+        // Lateral grip. This is the classic top-down arcade recipe: each frame
+        // the component of velocity perpendicular to the heading is multiplied
+        // by stab^dt, pulling the velocity vector onto the nose. The old
+        // stab of 0.85 let the car travel 21 px sideways in a lift-off test —
+        // the "driving on ice" feel; at 0.66 that is 7 px, and the peak drift
+        // angle in a 90° corner drops from 12.9° to 5.4°. Drift mode instead
+        // uses a fixed weak 0.93 — velocity lags the heading = natural slide.
         const latFric = opts.drift ? Math.pow(0.93, dt) : Math.pow(t.stab, dt);
-        const fwdFric = Math.pow(0.994, dt);
+        // Slightly more rolling drag than the old 0.994, so lifting off is a
+        // real input into a corner rather than a coast.
+        const fwdFric = Math.pow(0.991, dt);
         const nf = fwd * fwdFric, nl = lat * latFric;
         t.vx = nf * fx + nl * rx;
         t.vy = nf * fy + nl * ry;

@@ -243,14 +243,15 @@ contributors under the MIT licence in [`LICENSE`](LICENSE).
 
 | Change | Why |
 |---|---|
-| The four drivers — OSO, GATA, CIBELES, MADROÑO — drawn procedurally from primitive shapes at boot (`BootScene.genDrivers`) | Replaces the upstream `players/` art, which was **not** MIT-licensed (see below) |
-| Deleted the whole `players/` directory (8 PNGs) | Same reason — the project now ships no character art files at all |
+| The four drivers — OSO, GATA, CIBELES, MADROÑO — avatars drawn procedurally from primitive shapes at boot (`BootScene.genDrivers`) | Replaces the upstream `players/` art, which was **not** MIT-licensed (see below) |
+| Deleted the whole `players/` directory (8 PNGs) | Same reason — every art file the project ships now is project-made or openly licensed and credited in `NOTICE` |
 | Replaced the Octocat sticker on the DESK CHAOS laptop with an original "KM 0" road-marker sticker | Removes a third-party trademark from the artwork |
 | Renamed the product, page title and on-screen title | See [Naming and trademarks](#naming-and-trademarks) |
 | Added [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) | Upstream had no `LICENSE` file — only a line in its README |
 | MADRING's scenery is a baked overhead render of a 3D model of the real circuit (`scripts/madring-bake-overhead.js`), not hand-drawn art | The point of the track is that it is the real place; invented IFEMA halls and meseta scrub were an approximation of something we had a real source for |
 | MADRING's centreline is measured down the middle of that same model's asphalt (`scripts/madring-road-centre.js`), with the published geodata reduced to fixing where the lap starts and which way it goes | The published polyline crosses the infield for 636 m of the lap where the circuit does not. Since the background is a render of the model, that disagreement was visible under the car. Both this game and `madring-3d/` now race the same measured line — 5429 m against a published 5474 m. See [`scripts/MADRING-VALIDATION.md`](scripts/MADRING-VALIDATION.md) |
-| The four drivers' cars are drawn at 4x their on-screen size with a contact shadow, a hard outline, a visible driver and one livery each (`BootScene.genDrivers`) | They have to read as four distinct cars at 26x38 px on a dark aerial photograph, which is a much harder background than the flat green they were designed against |
+| The four drivers' cars are baked top-down renders of the formula car the 3D mode drives (`images/car-*.png`, from `scripts/bake-car-sprites.js` — APEX FORMULA 2026 model, Apache-2.0, see `NOTICE`), one per driver colour, with contact shadow and outline baked in at 4x their on-screen size; `BootScene.genDrivers` keeps a procedural car as fallback | Both views of the game now race the same car, and it has to read as four distinct cars at 26x38 px on a dark aerial photograph — measured at a mean luminance contrast of 71.6 against the previous procedural sprites' 58.9 |
+| The MADRING aerial is baked with a low sun (30°) and full cast shadows (`scripts/madring-bake-overhead.js`) | A straight-down orthographic render flattens every roof into a shape; long shadows give the halls, grandstands and gantry volume without tilting the camera, which would displace rooftops from footprints and break the road/collision alignment |
 
 ### Removed, and why
 
@@ -294,6 +295,10 @@ additions made here. [`NOTICE`](NOTICE) records the provenance in detail.
   ["Circuito de Madring 2026 layout"](https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05)
   by [Dave Love SketchFab](https://sketchfab.com/Tyler_Dave), licensed
   [CC-BY-4.0](http://creativecommons.org/licenses/by/4.0/)
+- **APEX FORMULA 2026** (Avi Hacker, J.D.) — the four car sprites are top-down
+  renders of that project's
+  [f1car-2026 model](https://github.com/ahacker-1/apex-formula-2026)
+  (Apache-2.0), the same car the 3D mode drives
 - **Kenney** — vehicle art reference
   ([Racing Pack](https://kenney.nl/assets/racing-pack), CC0)
 - **MFCC** — music ([Pixabay](https://pixabay.com/users/28627740/))

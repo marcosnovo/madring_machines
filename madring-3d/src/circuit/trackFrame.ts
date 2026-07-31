@@ -17,17 +17,41 @@
  *     Positive lateral offset ("lat") is towards +n. A positive yaw rate
  *     rotates the velocity towards +n, so positive lat is the driver's LEFT,
  *     and it is bounded by the measured left edge (`edgeLeft`).
- *   - `wallPos` / `wallNeg` bound lat on the +n / -n side: the measured edge
- *     plus the same 0.8 m margin the old cannon wall chain stood at.
+ *   - `wallPos` / `wallNeg` bound lat on the +n / -n side: the measured
+ *     asphalt edge plus a 0.8 m margin — or the model's *visible* barrier
+ *     line (./barriers, measured off the shipped model) where that stands
+ *     inside the asphalt, so a rendered wall is never drivable-through.
  *
  * Elevation and camber are carried per sample: `y` is the centreline height,
  * `latSlope` is dY per metre of positive lat, and `grade`/`camber` are the
  * small-angle gravity terms the dynamics consume (README, "The circuit").
  */
 import { getLayout } from './layout'
+import { BARRIERS, BARRIER_STRIDE } from './barriers'
 
 /** How far outside the measured asphalt edge the wall face stands, metres. */
 export const WALL_MARGIN = 0.8
+
+/**
+ * Never let a measured visible barrier pull the wall nearer the centreline
+ * than this, metres — a guard against survey artefacts, not a gameplay value.
+ */
+const BARRIER_FLOOR = 4.5
+
+/** Maximum change of a wall limit between neighbouring samples, m — ~21°. */
+const WALL_SLEW = 2.0
+
+/**
+ * The wall face on one side: the asphalt edge plus margin — unless the model's
+ * *visible* barrier line (measured off the shipped model by
+ * scripts/measure-barriers.mjs) stands inside it. At the pit straight, the
+ * run-off aprons and the lay-bys the paved corridor runs tens of metres past
+ * the walls the player can see; the clamp must follow what is rendered, or
+ * the car drives clean through a drawn wall while staying "inside" the
+ * corridor — which is exactly what players reported.
+ */
+const wallLimit = (asphaltEdge: number, barrier: number): number =>
+  barrier > 0 ? Math.min(asphaltEdge + WALL_MARGIN, Math.max(BARRIER_FLOOR, barrier)) : asphaltEdge + WALL_MARGIN
 
 export interface TrackSample {
   /** Planar centreline position. */
@@ -77,6 +101,9 @@ export function getTrackFrame(): TrackFrame {
   const layout = getLayout()
   const n = layout.samples.length
   const samples: TrackSample[] = new Array(n)
+  // Generated alongside the road data; if the two ever disagree in length the
+  // barrier survey is stale, and the asphalt-edge walls still stand.
+  const barriers = BARRIERS.length === n * BARRIER_STRIDE ? BARRIERS : null
   for (let i = 0; i < n; i++) {
     const s = layout.samples[i]
     const tLen = Math.hypot(s.t.x, s.t.z) || 1e-6
@@ -94,11 +121,29 @@ export function getTrackFrame(): TrackFrame {
       nx: tz,
       nz: -tx,
       curv: Math.abs(s.k),
-      wallPos: s.edgeLeft + WALL_MARGIN,
-      wallNeg: s.edgeRight + WALL_MARGIN,
+      wallPos: wallLimit(s.edgeLeft, barriers ? barriers[i * BARRIER_STRIDE] : 0),
+      wallNeg: wallLimit(s.edgeRight, barriers ? barriers[i * BARRIER_STRIDE + 1] : 0),
       latSlope,
       grade: clamp(s.t.y, -0.35, 0.35),
       camber: clamp(latSlope, -0.35, 0.35),
+    }
+  }
+  // Where a barrier begins (the pit wall's leading edge, a lay-by closing) the
+  // per-sample limit would step by many metres between neighbouring samples,
+  // and the lateral clamp would answer with a violent sideways correction.
+  // Slew-limit the wall line instead: a forward and a backward circular pass
+  // bound the change to WALL_SLEW per sample, turning every step into the
+  // angled lead-in a real wall end has.
+  for (const side of ['wallPos', 'wallNeg'] as const) {
+    for (let i = 0; i < 2 * n; i++) {
+      const a = samples[i % n]
+      const b = samples[(i + 1) % n]
+      if (b[side] > a[side] + WALL_SLEW) b[side] = a[side] + WALL_SLEW
+    }
+    for (let i = 2 * n; i > 0; i--) {
+      const a = samples[i % n]
+      const b = samples[(i - 1) % n]
+      if (b[side] > a[side] + WALL_SLEW) b[side] = a[side] + WALL_SLEW
     }
   }
   cached = {

@@ -192,7 +192,7 @@ window.__ready = new Promise((resolve, reject) => {
     console.log('ok');
 
     process.stdout.write('rendering… ');
-    const dataUrl = await page.evaluate(async ({ W, H, CAM, WP, RW, SS, SURFACE, OUTW, OUTH, FORMAT, QUALITY }) => {
+    const dataUrl = await page.evaluate(async ({ W, H, CAM, WP, RW, SS, SURFACE, OUTW, OUTH, FORMAT, QUALITY, SUN }) => {
         const THREE = window.THREE;
         const scene = new THREE.Scene();
         scene.add(window.__gltf.scene);
@@ -200,13 +200,50 @@ window.__ready = new Promise((resolve, reject) => {
         // Exposure budget, not decoration. The model's ground is a real aerial
         // photograph, so a flat up-facing surface wants to come back at roughly
         // its own texture colour: ambient alone would do that at intensity 1.
-        // The rest is spent on a steep key light, which costs a little
-        // brightness but keeps roofs lighter than walls so buildings still read
-        // as objects from directly above. Total on a horizontal face ≈ 1.1.
-        scene.add(new THREE.AmbientLight(0xffffff, 0.70));
-        scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x6b5f4a, 0.12));
-        const key = new THREE.DirectionalLight(0xfff4e0, 0.32);
-        key.position.set(0.35, 1, 0.25).multiplyScalar(1000);
+        // The rest is spent on the sun, which now sits LOW — a straight-down
+        // orthographic render flattens every roof into a shape, and the only
+        // way to give buildings volume without tilting the camera (which would
+        // displace rooftops from their footprints and break the road/collision
+        // alignment this bake promises) is to let them cast long shadows onto
+        // the ground. Elevation ~30°: a 20 m hall throws a ~35 m shadow.
+        // Azimuth is from the image's top-left, the direction human vision
+        // expects light from. Total on a lit horizontal face ≈ 1.1
+        // (0.42 ambient + 0.10 hemi + 1.15·sin 30° sun); in shadow ≈ 0.52 —
+        // shadowed ground renders at about half brightness, which is what it
+        // takes for the shadows to read on top of a photographic texture that
+        // already carries its own baked-in sun.
+        scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+        scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x6b5f4a, 0.10));
+        const SUN_ELEV = 30 * Math.PI / 180;
+        // screen direction the light comes FROM: top-left = world (-1, -1).
+        // Convert that world direction to model space with the same rotation
+        // the camera transform uses. The camera's mirror (cam.scale.x = -1)
+        // flips screen x, so the world-x component is negated once more to
+        // land on screen (-1, -1) — verified on the bake itself: the trees
+        // along the park rows throw their shadows to the lower-right.
+        const sth = SUN.th, sm = SUN.mirror;
+        const ux = (1 / Math.SQRT2) * sm, uy = (-1 / Math.SQRT2);
+        const mx = Math.cos(sth) * ux - Math.sin(sth) * uy;
+        const mz = Math.sin(sth) * ux + Math.cos(sth) * uy;
+        const D = 2500;
+        const key = new THREE.DirectionalLight(0xfff4e0, 1.15);
+        key.position.set(CAM.x + mx * Math.cos(SUN_ELEV) * D,
+                         Math.sin(SUN_ELEV) * D,
+                         CAM.z + mz * Math.cos(SUN_ELEV) * D);
+        key.target.position.set(CAM.x, 0, CAM.z);
+        scene.add(key.target);
+        key.castShadow = true;
+        // The shadow camera has to hold the whole circuit: half-diagonal of
+        // the world is ~1220 m, plus slack for the light's slant. 8192 px
+        // over ~2700 m is 0.33 m per shadow texel — three times finer than
+        // the 1 px ≈ 1 m output, so edges stay crisp at this scale.
+        const SR = 1350;
+        key.shadow.camera.left = -SR; key.shadow.camera.right = SR;
+        key.shadow.camera.top = SR;   key.shadow.camera.bottom = -SR;
+        key.shadow.camera.near = 500; key.shadow.camera.far = 4500;
+        key.shadow.mapSize.set(8192, 8192);
+        key.shadow.bias = -0.0004;
+        key.shadow.normalBias = 0.8;
         scene.add(key);
 
         // Half this model's materials are authored fully metallic — the hall
@@ -218,12 +255,24 @@ window.__ready = new Promise((resolve, reject) => {
         // author's texture implies.
         scene.traverse(o => {
             if (!o.isMesh) return;
+            // Everything casts and receives: the buildings, grandstands and
+            // the gantry throw the long shadows this bake is about, and the
+            // ground plane and the tarmac have to catch them.
+            o.castShadow = true;
+            o.receiveShadow = true;
             for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
                 if (!m || m.metalness === undefined) continue;
                 if (m.map && m.metalness > 0.5) { m.metalness = 0.2; m.roughness = Math.max(m.roughness, 0.5); }
                 else if (m.metalness > 0.9) m.metalness = 0.75;
                 m.envMapIntensity = 0.3;
                 m.needsUpdate = true;
+                // Cutout foliage/fence textures: without an alpha-tested depth
+                // material a transparent card shadows as its full rectangle.
+                if (m.transparent && m.map) {
+                    o.customDepthMaterial = new THREE.MeshDepthMaterial({
+                        depthPacking: THREE.RGBADepthPacking, map: m.map, alphaTest: 0.5,
+                    });
+                }
             }
         });
 
@@ -240,6 +289,8 @@ window.__ready = new Promise((resolve, reject) => {
         renderer.setSize(W, H, false);
         renderer.outputEncoding = THREE.sRGBEncoding;
         renderer.toneMapping = THREE.NoToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
         // a sky for the remaining metals to reflect
         const sky = document.createElement('canvas');
@@ -266,18 +317,27 @@ window.__ready = new Promise((resolve, reject) => {
         renderer.render(scene, cam);
         const passA = grab();
 
-        // pass B — road surface only, transparent elsewhere
-        const hidden = [];
+        // pass B — road surface only, transparent elsewhere. The non-surface
+        // meshes are not hidden but muted (no colour, no depth): an invisible
+        // mesh casts no shadow, and this pass is drawn back ON TOP of the
+        // composite, so hiding the buildings here would wipe their shadows
+        // off every stretch of real tarmac they fall across.
+        const muted = new Map();          // material → saved writes
         scene.traverse(o => {
             if (!o.isMesh) return;
             const mats = Array.isArray(o.material) ? o.material : [o.material];
             const isSurface = mats.some(m => m && SURFACE.some(s => (m.name || '').startsWith(s)));
-            if (!isSurface) { hidden.push(o); o.visible = false; }
+            if (isSurface) return;
+            for (const m of mats) {
+                if (!m || muted.has(m)) continue;
+                muted.set(m, { colorWrite: m.colorWrite, depthWrite: m.depthWrite });
+                m.colorWrite = false; m.depthWrite = false;
+            }
         });
         renderer.setClearColor(0x000000, 0);
         renderer.render(scene, cam);
         const passB = grab();
-        hidden.forEach(o => { o.visible = true; });
+        muted.forEach((saved, m) => { m.colorWrite = saved.colorWrite; m.depthWrite = saved.depthWrite; });
 
         // composite: circuit → our road band → real markings back on top
         const out = document.createElement('canvas');
@@ -315,7 +375,8 @@ window.__ready = new Promise((resolve, reject) => {
         fx.imageSmoothingEnabled = true; fx.imageSmoothingQuality = 'high';
         fx.drawImage(out, 0, 0, OUTW, OUTH);
         return fin.toDataURL(FORMAT === 'png' ? 'image/png' : 'image/jpeg', QUALITY);
-    }, { W, H, CAM, WP, RW: T.rw, SS, SURFACE, OUTW: T.W, OUTH: T.H, FORMAT, QUALITY });
+    }, { W, H, CAM, WP, RW: T.rw, SS, SURFACE, OUTW: T.W, OUTH: T.H, FORMAT, QUALITY,
+         SUN: { th, mirror: FIT.mirror } });
     console.log('ok');
 
     fs.writeFileSync(OUT, Buffer.from(dataUrl.split(',')[1], 'base64'));

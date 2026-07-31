@@ -58,7 +58,7 @@ const SHADOW_CASTERS = new Set([
 
 const WHEEL_NAMES = ['wheel_fl', 'wheel_fr', 'wheel_rl', 'wheel_rr'] as const
 
-interface CarParts {
+export interface CarParts {
   root: Group
   body: Object3D
   wheelObjects: Object3D[]
@@ -73,7 +73,7 @@ interface CarParts {
  * body_root / wheel_* can be re-parented into our own group — the same
  * flattening the reference's prepareTemplate does.
  */
-function prepare(scene: Group): CarParts {
+export function prepare(scene: Group): CarParts {
   const src = scene.clone(true)
   src.updateMatrixWorld(true)
   const root = src

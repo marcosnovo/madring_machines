@@ -52,6 +52,7 @@
     "prettier": "prettier --list-different '**/*.{js,jsx,md,ts,tsx}'",
     "prettier-fix": "prettier --write '**/*.{js,jsx,md,ts,tsx}'",
     "build:fit": "node scripts/fit-circuit.mjs",
+    "build:barriers": "node scripts/measure-barriers.mjs",
     "build:model": "node scripts/build-circuit-model.mjs",
     "build:assets": "npm run build:fit && npm run build:model"
   },

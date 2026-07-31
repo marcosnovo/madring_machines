@@ -20,10 +20,12 @@ import type { PropsWithChildren } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 
 import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Skid } from '../../effects'
+import { gamepad } from '../../controls/Gamepad'
 import type { Camera } from '../../store'
 import { getState, mutation, setState, useStore } from '../../store'
 import { useToggle } from '../../useToggle'
 import { getPlayer } from '../../vehicle/CarController'
+import { getRace } from '../../race/RaceSession'
 import { tuning } from '../../vehicle/tuning'
 import { getTrackFrame, surfaceY } from '../../circuit/trackFrame'
 import { insertScore } from '../../data'
@@ -49,6 +51,7 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
 
   let accumulator = 0
   let camera: Camera
+  let prevCamera: Camera | null = null
   let fov = tuning.fovBase
   let i = 0
   let isBoosting = false
@@ -75,17 +78,25 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
     const controls = getState().controls
 
     // ---- fixed-step simulation -------------------------------------------
+    // Keyboard and gamepad are merged per channel: whichever asks for more
+    // wins, and a moved stick makes the steering proportional (`analog`).
+    const keySteer = (controls.left ? 1 : 0) - (controls.right ? 1 : 0)
+    const padSteering = gamepad.connected && gamepad.steer !== 0 && keySteer === 0
     const input = {
-      steer: (controls.left ? 1 : 0) - (controls.right ? 1 : 0),
-      throttle: controls.forward ? 1 : 0,
-      brake: controls.backward ? 1 : 0,
-      handbrake: controls.brake,
-      boost: controls.boost,
+      steer: padSteering ? gamepad.steer : keySteer,
+      analog: padSteering,
+      throttle: Math.max(controls.forward ? 1 : 0, gamepad.throttle),
+      brake: Math.max(controls.backward ? 1 : 0, gamepad.brake),
+      handbrake: controls.brake || gamepad.handbrake,
+      boost: controls.boost || gamepad.boost,
     }
     accumulator += delta
     while (accumulator >= FIXED_DT) {
       accumulator -= FIXED_DT
-      const events = player.step(FIXED_DT, input)
+      // The race session steps the whole field — the player with this input
+      // (held on the grid until lights-out), the AI cars with theirs — and
+      // returns the player's events for the lap timing below.
+      const events = getRace().stepAll(FIXED_DT, input, getState().ready)
       if (events.wallHit > 0) mutation.wallHit = Math.max(mutation.wallHit, events.wallHit)
       if (events.crossedSF > 0) {
         const now = Date.now()
@@ -161,6 +172,15 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
     }
 
     // ---- chase / first-person camera --------------------------------------
+    // A camera *switch* is a cut, not a glide: the chase-lag lerp below runs
+    // at delta*cameraEase per frame, so at low frame rates (where delta is
+    // clamped to 1/30 but wall time runs on) the first-person pose could take
+    // seconds of real time to arrive — long enough that cycling `C` appeared
+    // to skip the cockpit camera entirely and show two chase views. On a mode
+    // change the camera teleports to the new mode's pose this frame; the
+    // easing only smooths motion *within* a mode.
+    const cameraSwitched = prevCamera !== camera
+    prevCamera = camera
     const steeringValue = player.roadWheelAngle
     if (camera !== 'BIRD_EYE') {
       if (camera === 'FIRST_PERSON') {
@@ -176,15 +196,14 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         )
       }
 
-      defaultCamera.position.lerp(v, Math.min(1, delta * t.cameraEase))
-      swivel = lerp(swivel, (-steeringValue * speed) / (camera === 'DEFAULT' ? 26 : 60), Math.min(1, delta * 8))
+      defaultCamera.position.lerp(v, cameraSwitched ? 1 : Math.min(1, delta * t.cameraEase))
+      const swivelTarget = (-steeringValue * speed) / (camera === 'DEFAULT' ? 26 : 60)
+      swivel = cameraSwitched ? swivelTarget : lerp(swivel, swivelTarget, Math.min(1, delta * 8))
 
       if ((defaultCamera as PerspectiveCamera).isPerspectiveCamera) {
-        fov = lerp(
-          fov,
-          camera === 'FIRST_PERSON' ? FOV_FIRST_PERSON + t.fovSpeed * 0.35 * speedFactor : t.fovBase + t.fovSpeed * speedFactor + (isBoosting ? t.fovBoost : 0),
-          Math.min(1, delta * (isBoosting ? FOV_EASE * 2.5 : FOV_EASE)),
-        )
+        const fovTarget =
+          camera === 'FIRST_PERSON' ? FOV_FIRST_PERSON + t.fovSpeed * 0.35 * speedFactor : t.fovBase + t.fovSpeed * speedFactor + (isBoosting ? t.fovBoost : 0)
+        fov = cameraSwitched ? fovTarget : lerp(fov, fovTarget, Math.min(1, delta * (isBoosting ? FOV_EASE * 2.5 : FOV_EASE)))
         const perspective = defaultCamera as PerspectiveCamera
         if (Math.abs(perspective.fov - fov) > 0.01) {
           perspective.fov = fov

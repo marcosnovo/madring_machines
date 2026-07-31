@@ -54,23 +54,31 @@ export function digitalSteeringLimit(speed: number): number {
   return clamp(1.15 - velocity * 0.0105, 0.42, 1)
 }
 
-/** Rate-limited digital steering input, from Apex's controls.js. */
-export function advanceSteeringInput(current: number, target: number, speed: number, dt: number): number {
+/**
+ * Rate-limited digital steering input, from Apex's controls.js. The attack and
+ * centre-return rates are live-tunable (leva → Steering): the shipped defaults
+ * attack a little faster than the reference and return to centre much faster,
+ * which is most of what "crisp" keyboard steering is.
+ */
+export function advanceSteeringInput(current: number, target: number, speed: number, dt: number, t: Tuning = tuning): number {
   const from = clamp(Number.isFinite(current) ? current : 0, -1, 1)
   const to = clamp(Number.isFinite(target) ? target : 0, -1, 1)
   const step = clamp(Number.isFinite(dt) ? dt : 0, 0, 1)
   const velocity = Math.abs(Number.isFinite(speed) ? speed : 0)
   let rate: number
   if (to !== 0) {
-    rate = 6.8 / (1 + velocity * 0.01)
+    rate = t.steerAttack / (1 + velocity * 0.01)
     // decisive crossover through chicanes and corrections
     if (from * to < 0) rate *= 1.25
   } else {
-    rate = 9 / (1 + velocity * 0.006)
+    rate = t.steerReturn / (1 + velocity * 0.006)
   }
   const next = from + (to - from) * Math.min(1, rate * step)
   return Math.abs(next) < 1e-5 ? 0 : clamp(next, -1, 1)
 }
+
+/** How fast an analog (gamepad) steer request is followed, 1/s. */
+const ANALOG_STEER_RATE = 22
 
 export function wallSupportDistance(relativeHeading: number): number {
   return CAR_HALF_WIDTH * Math.abs(Math.cos(relativeHeading)) + CAR_HALF_LENGTH * Math.abs(Math.sin(relativeHeading))
@@ -90,6 +98,13 @@ export interface CarInput {
   brake: number
   handbrake: boolean
   boost: boolean
+  /**
+   * True when `steer` is a proportional (gamepad stick) request: the binary
+   * key limiter and the attack/return shaping are bypassed and the stick is
+   * followed near-directly — the physical speed-dependent wheel clamp
+   * (`maxSteerAngle`) still applies.
+   */
+  analog?: boolean
 }
 
 export interface StepEvents {
@@ -161,6 +176,10 @@ export class CarController {
   get speed(): number {
     return Math.hypot(this.vehicle.velocityLong, this.vehicle.velocityLat)
   }
+  /** Continuous race progress: metres from the lap origin, laps included. */
+  get progress(): number {
+    return this.totalDist + this.progressBase
+  }
 
   /** Put the car on the centreline at a sample, at rest, facing forward. */
   placeAt(index: number): void {
@@ -200,8 +219,13 @@ export class CarController {
     const events: StepEvents = { crossedSF: 0, wallHit: 0 }
 
     // ---- input shaping ----------------------------------------------------
-    const steerLimit = digitalSteeringLimit(this.v)
-    this.steer = advanceSteeringInput(this.steer, clamp(input.steer, -1, 1) * steerLimit, this.v, dt)
+    if (input.analog) {
+      const target = clamp(input.steer, -1, 1)
+      this.steer = clamp(this.steer + (target - this.steer) * Math.min(1, dt * ANALOG_STEER_RATE), -1, 1)
+    } else {
+      const steerLimit = digitalSteeringLimit(this.v)
+      this.steer = advanceSteeringInput(this.steer, clamp(input.steer, -1, 1) * steerLimit, this.v, dt, t)
+    }
     this.throttle = clamp(input.throttle, 0, 1)
     this.brake = clamp(input.brake, 0, 1)
     this.slip = false
