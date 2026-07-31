@@ -3422,12 +3422,19 @@ class MainMenuScene extends Phaser.Scene {
 
         const menuStartY = 305;
         const menuSpacing = 60;
-        this.menuTexts = ITEMS.map((label, i) =>
-            this.add.text(GW / 2, menuStartY + i * menuSpacing, label, {
+        this.menuTexts = ITEMS.map((label, i) => {
+            const t = this.add.text(GW / 2, menuStartY + i * menuSpacing, label, {
                 fontSize: '34px', fontFamily: 'monospace',
                 color: i === 0 ? '#FFD700' : '#888', fontStyle: 'bold',
-            }).setOrigin(0.5)
-        );
+            }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+            // A tap both selects and confirms in one action — there is no
+            // hover state to preview a choice on a touchscreen, so unlike
+            // the keyboard's UP/DOWN + ENTER, a tap here is already a
+            // decision (same "one tap, one action" rule TrackSelectScene's
+            // zones already use).
+            t.on('pointerdown', () => { this.menuSel = i; this._select(); });
+            return t;
+        });
 
         this.cursor = this.add.text(GW / 2 - 175, menuStartY, '▶', {
             fontSize: '30px', fontFamily: 'monospace', color: '#FFD700',
@@ -3628,6 +3635,11 @@ class MainMenuScene extends Phaser.Scene {
             fontSize: '14px', color: '#444',
         }).setOrigin(0.5);
 
+        // Rows already have their own tap zone (adjust), so "back" needs its
+        // own separate tappable element rather than overloading a row tap.
+        addTxt(GW / 2, GH - 20, '◀  BACK', { fontSize: '15px', color: '#555', fontStyle: 'bold' })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
+
         return c;
     }
 
@@ -3658,7 +3670,8 @@ class MainMenuScene extends Phaser.Scene {
             bodyY += 44;
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' }).setOrigin(0.5);
+        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
 
@@ -3733,7 +3746,8 @@ class MainMenuScene extends Phaser.Scene {
             y += 16;
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' }).setOrigin(0.5);
+        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
 
@@ -3761,7 +3775,8 @@ class MainMenuScene extends Phaser.Scene {
             addTxt(GW / 2 + 10, y, action, { fontSize: '24px', color: '#ccc' }).setOrigin(0, 0.5);
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' }).setOrigin(0.5);
+        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+            .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
 }
@@ -3912,6 +3927,13 @@ class PlayerSelectScene extends Phaser.Scene {
             }).setOrigin(0.5);
 
             this.cards.push({ bg, img, car, name, x: cx });
+
+            // Tap a card to pick that driver and confirm in one action —
+            // same "no hover to preview, so a tap is already a decision"
+            // rule as TrackSelectScene's zones and the main menu's items.
+            this.add.zone(cx, 400, 150, 240)
+                .setInteractive({ useHandCursor: true })
+                .on('pointerdown', () => { this.sel = i; this.confirm(); });
         }
 
         // highlight indicator
@@ -5451,12 +5473,13 @@ class ResultsScene extends Phaser.Scene {
 
         const ct = this.add.text(GW / 2, 660, 'PRESS ENTER TO CONTINUE', {
             fontSize: '22px', fontFamily: 'monospace', color: '#fff',
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
         this.tweens.add({ targets: ct, alpha: 0.2, duration: 500, yoyo: true, repeat: -1 });
 
         const advance = () => this.scene.start('ShopScene');
         this.input.keyboard.on('keydown-ENTER', advance);
         this.input.keyboard.on('keydown-SPACE', advance);
+        ct.on('pointerdown', advance);
     }
 }
 
