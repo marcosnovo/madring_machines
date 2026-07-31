@@ -280,11 +280,15 @@ export class CarController {
       engineBrakeForce: engineBrake,
       handbrakeForce: input.handbrake ? t.handbrakeForce : 0,
       rearGripScale: input.handbrake ? t.handbrakeGrip : 1,
+      // The drift key also releases the electronic straitjacket: no lateral
+      // damping and only a sliver of the desired-yaw controller, so the rear
+      // can come around and stay out until the key is released.
+      yawDampingScale: input.handbrake ? 0.18 : 1,
       brakeBias: 0.56,
       diffLock: 0.45,
       abs: t.abs,
-      tc: t.tc,
-      stabilityAssist: t.stability,
+      tc: t.tc && !input.handbrake,
+      stabilityAssist: t.stability && !input.handbrake,
       downforce: downF,
       aeroBalance: 0.45,
       externalForceLong: -fDrag * Math.sign(this.v || 1),

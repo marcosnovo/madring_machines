@@ -13,10 +13,16 @@ only the circuit data in `../scripts/madring-centreline.js`.
 ## What it is derived from
 
 This is a derivative of **[colyseus/react-racing-game][fork]**, itself a fork of
-**[@pmndrs/racing-game][pmndrs]** — React Three Fiber, `@react-three/cannon`
-(cannon-es), zustand, Vite. Both are MIT. The vehicle physics, cameras, effects
-and HUD are theirs; the circuit is a CC-BY-4.0 model by Dave Love plus the code
-that aligns it, measures a road out of it and makes it drivable.
+**[@pmndrs/racing-game][pmndrs]** — React Three Fiber, zustand, Vite. Both are
+MIT. The application shell, cameras, effects and HUD are theirs; the circuit is
+a CC-BY-4.0 model by Dave Love plus the code that aligns it, measures a road out
+of it and makes it drivable.
+
+The car is neither of theirs any more: the upstream `@react-three/cannon`
+raycast vehicle (and with it the whole cannon physics world) has been replaced
+by an analytic four-corner vehicle model adapted from
+**[APEX FORMULA 2026][apex]** (Apache-2.0, © 2026 Avi Hacker, J.D.), together
+with its formula car model. See *Making it drive* below and NOTICE section 2.
 
 The desert map they ship has been removed entirely, along with the Colyseus
 multiplayer server and the hosted Supabase leaderboard. Read **[NOTICE](NOTICE)**
@@ -25,6 +31,7 @@ which third-party attributions still apply.
 
 [fork]: https://github.com/colyseus/react-racing-game
 [pmndrs]: https://github.com/pmndrs/racing-game
+[apex]: https://github.com/ahacker-1/apex-formula-2026
 
 ## Run it
 
@@ -51,9 +58,12 @@ npm run build:assets  # both
 No server, no account, no network. Everything the page needs is served from
 `public/`, including the Draco decoder that upstream fetched from a Google CDN.
 
-Drive with the arrow keys or WASD. `Space` drifts, `Shift` boosts, `R` puts you
-back on the circuit, `C` cycles chase / first-person / bird's-eye, `M` toggles
-the minimap, `I` shows the full key list.
+Drive with the arrow keys or WASD (`↓`/`S` brakes, and held at a standstill,
+reverses). `Space` is the drift/handbrake, `Shift` boosts, `R` puts you back on
+the circuit, `C` cycles chase / first-person / bird's-eye, `M` toggles the
+minimap, `I` shows the full key list, and `.` opens the **live tuning panel** —
+every constant of the car, the camera and the body attitude, adjustable while
+driving, persisted to localStorage (see *Making it drive*).
 
 ## The circuit
 
@@ -184,73 +194,44 @@ the model is drawn, which a parallel ribbon never is.
 
 ### Collision
 
-Two things collide.
+There is no collision engine any more — and that is an upgrade, not a cut.
 
-**The asphalt.** The model's `TarmacDark` meshes go to cannon as static
-`Trimesh` bodies — 25 of them (one per tile the build script cut), 62,032
-triangles. The wheels ride on exactly the surface the player sees: every camber,
-crest, dip and kerb-height step in the model is felt.
+The car lives in the **track frame** (`src/circuit/trackFrame.ts`): distance
+along the measured centreline, a signed lateral offset, and a heading. In that
+frame the walls are not bodies to collide with; they are the measured corridor
+itself:
+
+**The asphalt.** The surface height, longitudinal grade and cross-slope under
+the car are sampled from the measured road (the same 1,024-sample data the
+walls, minimap and lap timing use) and fed into the vehicle model as gravity
+terms; the rendered car is pitched and rolled onto the surface by four height
+probes. Elevation, camber, crests and dips are all felt, exactly as measured
+off the model.
 
 ![the run down to the north loop](docs/backstraight.png)
 
-**The walls.** `src/circuit/walls.ts` runs a continuous chain of 1,024 static
-boxes down each side of the measured asphalt, 0.8 m outside the edge, grouped
-into 48 compound bodies so no body has an AABB the size of the circuit. They are
-invisible. You may use the full width of the asphalt, run-off aprons included,
-and you cannot leave it.
+**The walls.** Each sample knows how far the asphalt runs to either side; the
+wall face stands 0.8 m outside that edge, per side, per sample — the same line
+the old cannon boxes stood on. Every physics tick the car's yaw-aware footprint
+is clamped against those limits *analytically* (the wall-space impact response
+is adapted from APEX FORMULA 2026): the position is corrected only along the
+wall normal, the tangential velocity survives a graze at 72–94%, and the
+outward velocity becomes a small separation speed. There is nothing to tunnel
+through, at any speed, because there is no discrete collision to miss.
 
-They did not use to work. The first version put one 0.8 × 3 × 21 m box *centred
-on* every 21st metre of centreline, square to the road at that sample, and you
-could drive straight through it. Two separate reasons, both found by rebuilding
-the collision world headless in cannon-es and firing the chassis at the wall
-from 366 points around the lap:
+Swept from 128 spawn points around the lap, both sides, at 30 / 60 / 90 m/s
+and 90° / 60° / 45° / 30° / 20° incidence — 1,920 impacts through the real
+compiled controller: **zero escapes, zero penetration beyond the wall face**,
+at every angle and speed (the cannon chain, at its best, still leaked 2–8% of
+shallow impacts). Confirmed in a real browser, stepping the game's own module
+at 60 Hz: head-on at 288 km/h the car never crosses the wall face and comes
+away at 16 km/h.
 
-1. **A row of chords is not a wall.** Each box sat at its own sample's edge
-   distance, and that distance steps by up to 4.6 m from one box to the next, so
-   consecutive boxes met end-cap to end-cap with a lateral jog. An end cap's
-   normal points *along* the road, so a car arriving at a joint got pushed
-   forwards rather than sideways and slid past.
-2. **0.8 m is thinner than one physics step.** cannon has no continuous
-   collision detection. At 1/60 s the car covers 0.5 m at 30 m/s and 1.5 m at
-   the top speed, and once the centre of the chassis is past the middle of a
-   thin box, box-vs-box narrowphase reports the *far* face as the axis of least
-   penetration — so the contact helpfully pushes the car out through the back.
-
-Now each box spans *between* consecutive edge points, so the chain is continuous
-and every face the car can reach points at the road; and they are 8 m thick and
-9 m tall, which is far more than a single step's penetration, so the axis of
-least penetration stays lateral. Thickness grows outwards only — the inner face
-is exactly where it always was. There is room for that: the tightest gap
-anywhere on the lap between a wall line and another part of the paved corridor
-is 16.8 m.
-
-Fired at the wall at 30, 60 and 90 m/s from 366 places around the lap, per
-angle of incidence:
-
-| got through | 90° | 60° | 45° | 30° | 20° |
-|---|---|---|---|---|---|
-| old walls | 4.9% | 14.5% | 19.4% | 27.9% | 30.9% |
-| these walls | **0.0%** | **0.0%** | 2.2% | 5.7% | 7.9% |
-
-Confirmed in a real browser: at 288 km/h the car now stops 1.4 m short of the
-wall face and is thrown back at 45 km/h. It used to sail through at 144.
-
-What is left is all shallow-angle, and all at the handful of samples where the
-measured corridor changes width abruptly and the wall line has a sharp convex
-kink. A box fired in a straight line finds those; a car that steers does not.
-
-**Nothing else collides.** Grandstands, the pit building, the city, floodlights,
-signage, trees, the parked vans, the fences: decoration. The honest
-reason is that **cannon-es implements only sphere-trimesh and plane-trimesh
-narrowphase** — there is no convex/box-vs-trimesh — so a trimesh can be driven
-*on* (the wheel raycasts hit it; `Ray` supports trimesh via the mesh's octree)
-but never driven *into*. The chassis box passes straight through one. Giving
-1.6 M triangles of scenery collision would buy nothing but a slower broadphase.
-The design reason is that a street circuit is defined by its walls: get those
-right and nothing else needs to be solid.
-
-What that costs: you can drive through the pit-lane fence and the tyre stacks.
-You have to climb a wall to reach them.
+**Nothing else collides**, same as before: grandstands, the pit building, the
+city, fences, tyre stacks are decoration. A street circuit is defined by its
+walls; get those right and nothing else needs to be solid. You can no longer
+reach the scenery anyway — the analytic walls have no gaps to slip through,
+and with no killzone needed there is nowhere to fall.
 
 ### Performance
 
@@ -341,52 +322,77 @@ coefficient of 1.6 the 153 m radius is worth about 186 km/h; at the real 13.5°
 it would be worth 241 km/h. La Monumental is a fast corner here, but not the
 corner it is supposed to be.
 
-## Making it arcade
+## Making it drive
 
-The complaint was *se siente lento, no responde directamente* — it feels slow
-and it does not answer directly. Both were true, and neither was mainly about
-the car.
+Two rounds of complaint shaped the car. Round one — *se siente lento, no
+responde directamente* — was answered by tuning the upstream `RaycastVehicle`
+(more power, more grip, speed-sensitive steering; 0–100 went from 3.97 s to
+2.73 s). The player drove it and delivered round two: *no se siente como
+conducir*. Parameter tuning on a toy raycast vehicle had hit its ceiling, so
+the vehicle was replaced, not re-tuned — with the model from **APEX FORMULA
+2026**, an open-source (Apache-2.0) racer the player independently judged
+*más real*.
 
-Everything below was moved against a measurement rather than a feeling. A
-headless cannon-es rig (`RaycastVehicle`, the real `vehicleConfig`, the same
-on-off keys the player has, a flat plane for vehicle dynamics and the measured
-circuit for lap work) reports acceleration, braking, steady-state cornering
-radius and how far a scripted driver gets in 150 seconds. It runs a lap in about
-a second, which is the only reason any of this could be tuned at all in a
-sandbox that renders at well under 1 fps.
+### The car, mark II
 
-### The car
+The car is one analytic rigid body in the track frame, stepped at a fixed
+60 Hz (`src/vehicle/`, adapted — see NOTICE):
 
-|  | before | after |
+- a **four-corner tyre model**: load-sensitive grip, a combined-slip friction
+  circle per wheel, tyre relaxation over distance, per-wheel spin with TC and
+  ABS clamps, deterministic load transfer from the previous tick;
+- **massive downforce** (CLA 4.3 — ~2.3× the car's weight at 300 km/h), which
+  is the secret of "planted at speed": fast corners grip harder the faster you
+  go, instead of washing out;
+- an 8-speed gearbox with per-gear tops (auto by default), 585 kW plus a
+  240 kW **boost** (Manual Override) that drains the boost gauge — braking
+  harvests it back;
+- a **speed-dependent steering clamp** (`0.05 + 0.42/(1 + 0.085·v)` rad, the
+  reference's curve) plus rate-limited digital steering, so held arrow keys
+  ask for a usable wheel angle at 300 km/h and full lock in the hairpin;
+- assists **on by default** — TC, ABS, auto-gear, a lateral stability term —
+  which is why it is approachable despite being a simulation. `Space` is the
+  drift/handbrake: rear-only brake force, reduced rear grip, and the
+  electronic straitjacket (stability + most of the yaw damping) released for
+  as long as it is held. A short tap breaks the rear loose into a 20–25°
+  slide; holding it spins you, as a handbrake should;
+- visual **body attitude** — dive under braking, squat under power, roll into
+  corners (clamped at ~2.6°) — applied to the chassis mesh only, never fed
+  back into the dynamics.
+
+Measured on the shipped defaults by a headless rig that steps the *same
+compiled controller* the game runs (scratchpad rig; a 150 s drive takes
+~35 ms):
+
+|  | mark I (raycast) | mark II (analytic) |
 |---|---|---|
-| 0–100 km/h | 3.97 s | **2.73 s** |
-| 0–200 km/h | 8.05 s | **5.52 s** |
-| 0–300 km/h | 12.33 s | **8.38 s** |
-| 200–0 km/h | 4.13 s / 119 m | **2.93 s / 95 m** |
-| full-lock radius @ 120 km/h | 39 m | **22 m** |
-| … @ 200 km/h | 116 m | **62 m** |
-| … @ 280 km/h | 229 m | **118 m** |
-| scripted driver, 150 s | 5,974 m @ 143 km/h | **7,516 m @ 180 km/h** |
+| 0–100 km/h | 2.73 s | **2.85 s** (traction-limited launch) |
+| 0–200 km/h | 5.52 s | **5.28 s** |
+| 0–300 km/h | 8.38 s | **9.88 s** (9.55 s with boost) |
+| top speed | ~317 km/h | **347 km/h** (gear-limited) |
+| 200–0 km/h | 2.93 s / 95 m | **2.95 s / 68.5 m** |
+| steady lateral g @ 150 km/h | — | **2.64 g** (67 m radius, full lock) |
+| held full lock @ 250 km/h | — | **29°/s** steady yaw |
+| yaw response (step steer → 90%) | — | **0.17–0.20 s** |
+| lateral-velocity decay τ @ 150 km/h | — | **0.23 s** |
 
-Four passes, in this order:
+The numbers to feel in those: at 250 km/h a held full lock still visibly
+rotates the car instead of ploughing, a step of steering answers within a
+fifth of a second, and injected sideways velocity dies in a quarter of one —
+direct, but earned through tyres rather than by faking the velocity vector.
 
-1. **Power.** Engine force 1800 → 2600 N per driven wheel. That is the whole of
-   the acceleration change; nothing else touches it.
-2. **Grip.** `frictionSlip` 1.5 → 2.6 and `sideAcceleration` 3 → 4. This is what
-   "no responde" actually was: the car had so little lateral grip that at
-   200 km/h full lock bought a 116 m radius.
-3. **Suspension.** `suspensionStiffness` 30 → 45, explicit damping (8
-   compression / 12 relaxation) and `maxSuspensionTravel` 0.35. Less wallow into
-   the next corner — and, unexpectedly, 24 m off the 200–0 braking distance,
-   because a car that is not pitching keeps its wheels loaded.
-4. **Steering.** Lock 0.30 → 0.36 rad, and new: `steerSpeedFalloff`, which
-   bleeds half of it away by top speed. That reads backwards and is not — at
-   280 km/h the *reduced* lock turns harder (118 m against 168 m at full lock),
-   because full lock simply saturated the front tyres and the car ploughed on.
-   The steering also reaches its target faster (lerp rate 20 → 26).
+### The tuning panel
 
-Boost now does something: 1.7× engine force instead of 1.5×, and it lifts the
-speed ceiling by 12% rather than leaving you stuck against the same wall.
+Only the player can judge feel, so every constant is live. `.` opens a leva
+panel (upstream shipped leva; the panel is new) with the car — mass, power,
+boost power, μ, downforce CLA, drag CDA, rolling drag, cornering stiffness and
+its front/rear split, yaw inertia — the steering clamp's four curve
+parameters, the four assists as toggles, the handbrake's force and grip, the
+camera's FOV base/speed/boost ramps, its easing rate and shake, and the
+body-attitude gains. Values apply on the next physics tick (no rebuild, no
+respawn), persist to localStorage, and `reset tuning` restores the shipped
+defaults. The panel overlays the game; the car stays drivable while it is
+open.
 
 ### The camera
 
@@ -407,6 +413,13 @@ The bird's-eye camera was also fixed: the camera-sway code wrote `rotation.x`
 unconditionally, which threw away the −90° pitch the overhead camera is declared
 with and pointed it at the horizon. Pressing `C` twice used to give you a
 screenful of sky.
+
+Mark II adds, all tunable from the panel: a subtle **speed shake** on top of
+the sway (quadratic in speed, so it only appears near the top end), a camera
+**kick on wall impacts**, a faster FOV punch when the boost engages, and a
+CSS **speed-lines + vignette overlay** (`src/ui/SpeedLines.tsx`) that fades in
+from 140 km/h, saturates near top speed and tints cool under boost — one DOM
+element, no shader passes, no cost at low speed.
 
 ### The speedometer
 
@@ -498,8 +511,9 @@ reflection rather than its colour. Replacing it would mean shipping another
 - No collision on anything but the asphalt and those walls.
 - **The crowd.** The model has none. Where the people stand is measured off the
   model's grandstand meshes; that they exist at all is ours.
-- The car. Nothing about how it accelerates, steers, brakes or is filmed comes
-  from anywhere but taste plus a measuring rig — see *Making it arcade*.
+- The car. How it accelerates, steers, brakes and slides is the APEX FORMULA
+  2026 model (NOTICE section 2), verified against a measuring rig; how it is
+  filmed is ours — see *Making it drive*.
 
 ## Known limitations
 
@@ -507,19 +521,15 @@ reflection rather than its colour. Replacing it would mean shipping another
   server; the minimap and rank UI that depended on it are gone or simplified.
 - **The leaderboard is local.** Completed laps go to `localStorage` and are
   listed under `L`. Nothing is uploaded.
-- **The chassis passes through the road mesh** if it is ever separated from its
-  wheels (see *Collision*). In normal driving the suspension keeps it clear.
 - **The scenery is not solid** — see *Collision*. Fences, tyre stacks and the
-  pit wall are decoration.
-- **0.31% of the area between the walls is not asphalt**: raster-quantisation
-  slivers at the edges, mostly. If the car finds one it drops through and the
-  killzone at y = −40 respawns it.
+  pit wall are decoration, though the analytic walls now make them unreachable.
+- **The vehicle physics is planar.** The car's dynamics run in the track frame;
+  elevation, grade and camber enter as sampled gravity terms and the rendered
+  car is pitched/rolled onto the surface, but the car cannot jump, and a crest
+  taken flat out will not unload the tyres the way a full 3D model would.
 - **The 24% banking of La Monumental is not in the model**, and is not invented
   either. Cross-slope comes off the model and peaks at 2.8°; *La Monumental*
   above sets out what banking it would cost.
-- **The invisible walls still leak at shallow angles.** 0% of perpendicular and
-  60° impacts get through, but 2–8% of 20–45° ones do, all at the few places
-  where the measured corridor changes width abruptly. See *Collision*.
 - **The crowd is quads.** Two-triangle bodies and heads, turned to face the
   racing line. From the track they read as a crowd; from the wrong angle they
   read as what they are. There are no animations beyond a shader sway, and the
@@ -530,21 +540,23 @@ reflection rather than its colour. Replacing it would mean shipping another
   here — several hundred thousand blended triangles would need depth sorting
   the scene cannot afford — which crisps up their edges.
 - **`import.meta.env.DEV` exposes `window.__game`** (`getState`, `mutation`,
-  `getLayout`), `window.__render` (draw calls and triangles for the heaviest
-  render pass of the frame), `window.__circuit`, `window.__crowd` and
-  `window.__physics`, so a headless browser can inspect the car, the layout, the
-  crowd and the renderer. All stripped from production builds.
+  `getLayout`, `getPlayer` — the live vehicle controller — and `tuning`),
+  `window.__render` (draw calls and triangles for the heaviest render pass of
+  the frame), `window.__circuit` and `window.__crowd`, so a headless browser
+  can inspect and even step the car, the layout, the crowd and the renderer.
+  All stripped from production builds.
 
 ### Changes to upstream behaviour
 
-Seven upstream bugs surfaced on a circuit this size and are fixed here, each
-with a comment at the site:
+Upstream bugs that surfaced on a circuit this size, fixed here (those in the
+cannon layer died with it, but are recorded because they shaped the design):
 
 - `BoundingBox` built a cage of six trigger planes. cannon treats a plane as a
   solid half-space, so all six were in permanent contact with anything inside
   the cage: the car fired `reset()` on its first physics step, which silently
-  overwrote its spawn heading. Replaced by `Killzone`, one plane facing up from
-  below.
+  overwrote its spawn heading. It was replaced by a single killzone plane, and
+  the killzone itself is gone now: the analytic walls make falling off the
+  world impossible.
 - `reset()` (the `R` key) only zeroed rotation and velocity. On a 5 km circuit
   that leaves you stranded wherever you went off; it now respawns you on the
   centreline nearest to where you ended up, facing the right way.
@@ -559,11 +571,11 @@ with a comment at the site:
 - `useToggle` is called in a render body and returned a **brand new function
   component every time**. React compares element types by identity, so every
   re-render of `App` was a different component type and the entire subtree was
-  unmounted and remounted — under `<Physics>` that tore down and rebuilt all
-  83 cannon bodies *and the raycast vehicle*, silently teleporting the car back
-  to the grid mid-lap. Measured in a headless browser: five App renders in 40 s,
-  each removing and re-adding every body. The wrappers are cached now, and the
-  same measurement shows zero body churn.
+  unmounted and remounted — in the cannon era that tore down and rebuilt all
+  83 physics bodies *and the raycast vehicle*, silently teleporting the car
+  back to the grid mid-lap. The wrappers are cached now; and the mark II car is
+  additionally immune by construction, because the controller is a module-level
+  singleton that no remount can respawn.
 - The camera-sway block wrote `rotation.x` on whichever camera was current,
   including the bird's-eye one, discarding the −90° pitch it is declared with.
   The overhead view was a screen of sky.

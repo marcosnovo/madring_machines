@@ -24,16 +24,18 @@ which is itself a fork of:
 
 The upstream repository was cloned into this directory and its .git removed.
 Everything here that is not listed in section 4 descends from that project — in
-particular the React Three Fiber application shell: the @react-three/cannon
-raycast-vehicle physics, the chase/first-person/bird's-eye cameras, the dust,
-skid, boost and engine-audio effects, the zustand store and key bindings, and
-the whole HUD (clock, speedometer, help, colour picker, minimap, leaderboard).
+particular the React Three Fiber application shell: the chase/first-person/
+bird's-eye cameras, the dust, skid, boost and engine-audio effects, the zustand
+store and key bindings, and the whole HUD (clock, speedometer, help, colour
+picker, minimap, leaderboard).
 
-The vehicle *tuning* and the chase camera's behaviour are no longer upstream's.
-Engine force, grip, suspension, steering lock and its speed sensitivity, the
-boost, the field of view and its animation with speed, and the camera's easing
-and distance were all re-tuned against a headless measuring rig; the structure
-is still theirs. README.md, "Making it arcade", records the before and after.
+The upstream @react-three/cannon raycast-vehicle physics has been REMOVED
+entirely, together with the cannon collision world (road trimesh, wall boxes,
+lap trigger volumes, killzone). The car is now an analytic four-corner vehicle
+model adapted from APEX FORMULA 2026 (see section 2), living in the track
+frame of the measured circuit; walls and lap timing are analytic too. The
+chase camera's behaviour is also no longer upstream's. README.md records the
+history.
 
 The upstream MIT licence text is reproduced verbatim in LICENSE.md and continues
 to govern this work. The typo in its copyright line ("pmdrs") is upstream's; it
@@ -43,13 +45,34 @@ is left untouched.
 2. THIRD-PARTY ASSETS
 ---------------------
 
-Vehicle model — Alexus16, "Classic Muscle car"
-    https://sketchfab.com/3d-models/classic-muscle-car-641efc889e5f4543bae51d0922e6f4b3
-    Licensed CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/).
-    Shipped as public/models/chassis-draco.glb and wheel-draco.glb. This asset
-    is still in use, so the attribution is required and is retained both here
-    and in the comment blocks at the top of src/models/vehicle/Chassis.tsx and
-    src/models/vehicle/Wheel.tsx.
+Vehicle dynamics code and car model — APEX FORMULA 2026, by Avi Hacker, J.D.
+    https://github.com/ahacker-1/apex-formula-2026
+    Copyright 2026 Avi Hacker, J.D.
+    Licensed under the Apache License, Version 2.0. A full copy of the licence
+    is in LICENSES/apex-formula-2026-Apache-2.0.txt.
+
+    Code: src/vehicle/dynamics.ts is a TypeScript adaptation of that project's
+    js/vehicleDynamics.js (the four-corner, load-sensitive, combined-slip tyre
+    model), and src/vehicle/CarController.ts adapts js/physics.js (CarPhysics:
+    powertrain, gears, aero, TC/ABS, the speed-dependent steering clamp, the
+    analytic wall response), js/controls.js (digital steering shaping) and
+    js/contact.js (footprint constants). Each adapted file carries the
+    copyright/licence notice and a statement of changes at the top, as
+    Apache-2.0 §4 requires. The main changes: translation to TypeScript,
+    re-targeting the wall constraint at this project's measured per-side
+    corridor, removal of the tyre thermal/wear/fuel/ERS/weather systems, and
+    the addition of a handbrake input, a boost gauge and live tuning hooks.
+
+    Model: public/models/f1car-2026.glb is that project's assets/f1car-2026.glb,
+    verbatim. Its ASSET_PROVENANCE.md declares it project-authored (generated
+    by tools/blender/build_car.py) with no third-party logos or likenesses,
+    released under the same Apache-2.0 licence. The material finishing (carbon
+    weave tone, tyre colour, clearcoat body paint) is done at load time in
+    src/models/vehicle/Chassis.tsx.
+
+    The clearcoat paint recipe on the body (MeshPhysicalMaterial, metalness
+    0.9 / roughness 0.4 / clearcoat 1.0) follows the three.js
+    webgl_materials_car example (MIT, three.js authors).
 
 Circuit model — Dave Love SketchFab, "Circuito de Madring 2026 layout"
     https://sketchfab.com/3d-models/circuito-de-madring-2026-layout-5bbaf6e5048643858a498bc8a4ef4c05
@@ -116,7 +139,7 @@ Circuit centreline — Tomislav Bacinger, "f1-circuits"
     is redistributed here; only the derived coordinates.
 
 Libraries — three.js, React, @react-three/fiber, @react-three/drei,
-@react-three/cannon, cannon-es, zustand, leva, lodash-es, vite, @pmndrs/branding
+zustand, leva, lodash-es, vite, @pmndrs/branding
     All MIT. Consumed as npm dependencies; not vendored in this repository.
 
 Typeface — Inter, by Rasmus Andersson
@@ -160,6 +183,29 @@ deletion removes a second CC-BY-4.0 asset that was baked into the same file,
 
 The vehicle .glb files are NOT affected by this — see section 2, their CC-BY
 attribution stands.
+
+3.1b The muscle car, and its CC-BY attribution
+
+The player vehicle used to be:
+
+    "Classic Muscle car" by Alexus16
+    https://sketchfab.com/3d-models/classic-muscle-car-641efc889e5f4543bae51d0922e6f4b3
+    Licensed CC-BY-4.0
+
+shipped as public/models/chassis-draco.glb and wheel-draco.glb. Both files
+have been deleted and replaced by the APEX FORMULA 2026 car (section 2). No
+part of the Alexus16 asset remains in use or is redistributed, so its CC-BY
+attribution no longer applies to this work and has been removed from this
+file and from the intro screen.
+
+3.1c The cannon physics layer
+
+Removed together with the RaycastVehicle (see section 1): the road collision
+trimeshes, the invisible wall boxes (src/circuit/walls.ts), the lap trigger
+volumes (LapTiming.tsx), the catch plane (Ground.tsx) and the killzone
+(Killzone.tsx). Their replacements are analytic and live in src/vehicle/ and
+src/circuit/trackFrame.ts. The @react-three/cannon dependency has been
+dropped.
 
 3.2 The multiplayer server
 
@@ -218,12 +264,14 @@ Original work by the Kilómetro Cero contributors, MIT licensed:
     section 2.
   - src/circuit/ — layout.ts turns the generated road samples into arc length,
     signed curvature and an orthonormal road frame per sample, and finds La
-    Monumental by curvature analysis; walls.ts places the invisible collision
-    boxes on the measured asphalt edges. What is derived from real data and what
-    is our approximation is set out in README.md.
-  - src/models/track/Circuit.tsx, CircuitPhysics.tsx, Ground.tsx and
-    LapTiming.tsx — the model renderer, the trimesh + wall collision, the catch
-    plane, and sector/lap timing.
+    Monumental by curvature analysis; trackFrame.ts re-expresses that as the
+    track frame the vehicle model drives in (per-side wall limits, grade,
+    camber, surface height). What is derived from real data and what is our
+    approximation is set out in README.md.
+  - src/models/track/Circuit.tsx — the model renderer.
+  - src/vehicle/ — the vehicle layer around the Apache-2.0 code identified in
+    section 2: tuning.ts (live tuning, persisted) and the game-specific parts
+    of CarController.ts (boost gauge, lap progress, reset).
   - src/models/track/Crowd.tsx — the crowd. Finds the seating surfaces in the
     model's four grandstand materials (upward-facing triangles, filtered by
     area and by headroom) and scatters ~6,000 instanced spectators over them,

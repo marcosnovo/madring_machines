@@ -52,8 +52,8 @@ export function Intro({ children }: { children: ReactNode }): JSX.Element {
             &ldquo;Circuito de Madring 2026 layout&rdquo;
           </a>{' '}
           by <a href="https://sketchfab.com/Tyler_Dave">Dave Love SketchFab</a>, licensed <a href="http://creativecommons.org/licenses/by/4.0/">CC-BY-4.0</a>.
-          Car: <a href="https://sketchfab.com/3d-models/classic-muscle-car-641efc889e5f4543bae51d0922e6f4b3">&ldquo;Classic Muscle car&rdquo;</a> by{' '}
-          <a href="https://sketchfab.com/Alexus16">Alexus16</a>, CC-BY-4.0.
+          Car model &amp; vehicle dynamics adapted from{' '}
+          <a href="https://github.com/ahacker-1/apex-formula-2026">APEX FORMULA 2026</a> (© 2026 Avi Hacker, J.D., Apache-2.0).
           <br />
           Derivative of <a href="https://github.com/pmndrs/racing-game">@pmndrs/racing-game</a> and{' '}
           <a href="https://github.com/colyseus/react-racing-game">colyseus/react-racing-game</a>, both MIT. Centreline from{' '}

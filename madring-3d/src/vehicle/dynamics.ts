@@ -116,6 +116,11 @@ export interface DynamicsParams {
   handbrakeForce: number
   /** Rear grip multiplier while the handbrake is held (1 = untouched). */
   rearGripScale: number
+  /**
+   * Multiplier on the desired-yaw damping moment (1 = reference). The drift
+   * key lowers it so the car can actually rotate past the kinematic yaw.
+   */
+  yawDampingScale: number
   brakeBias: number
   diffLock: number
   abs: boolean
@@ -344,7 +349,7 @@ export function stepVehicleDynamics(state: VehicleState, params: DynamicsParams,
   const lateralCapacity = (wheels[0]._scratch.limit + wheels[1]._scratch.limit + wheels[2]._scratch.limit + wheels[3]._scratch.limit) / mass
   const yawLimit = clamp((0.85 * lateralCapacity) / Math.max(3, Math.abs(u0)), 0.18, 2.4)
   const desiredYaw = clamp(rawDesiredYaw, -yawLimit, yawLimit)
-  yawMoment -= (r0 - desiredYaw) * (14500 + absSpeed * 240)
+  yawMoment -= (r0 - desiredYaw) * (14500 + absSpeed * 240) * clamp(finite(params.yawDampingScale, 1), 0.05, 1)
   // Integrate body-frame velocity derivatives, but publish and retain physical
   // CG acceleration for telemetry and the next tick's load transfer.
   const bodyAccelLong = forceLong / mass + r0 * v0

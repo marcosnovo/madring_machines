@@ -49,7 +49,6 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
 
   let accumulator = 0
   let camera: Camera
-  let editor = false
   let fov = tuning.fovBase
   let i = 0
   let isBoosting = false
@@ -73,7 +72,6 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
     const t = tuning
 
     camera = getState().camera
-    editor = getState().editor
     const controls = getState().controls
 
     // ---- fixed-step simulation -------------------------------------------
@@ -164,10 +162,10 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
 
     // ---- chase / first-person camera --------------------------------------
     const steeringValue = player.roadWheelAngle
-    if (!editor && camera !== 'BIRD_EYE') {
+    if (camera !== 'BIRD_EYE') {
       if (camera === 'FIRST_PERSON') {
         // the driver's eye, just above the halo
-        v.set((Math.sin(-steeringValue) * speed) / 40, 0.9, -0.1)
+        v.set((Math.sin(-steeringValue) * speed) / 40, 0.98, -0.35)
       } else {
         // sideways lead into the corner, a little squat under power, and the
         // camera drawing *in* with speed rather than falling away from it
@@ -197,9 +195,9 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
 
     // Camera sway + speed shake + wall-impact kick. Assigned, not accumulated.
     // Not applied to the bird's-eye camera, which looks straight down.
-    if (!editor && camera === 'BIRD_EYE') {
+    if (camera === 'BIRD_EYE') {
       defaultCamera.rotation.set(-Math.PI / 2, 0, Math.PI)
-    } else if (!editor) {
+    } else {
       swaySpeed = isBoosting ? 60 : 30
       swayTarget = (isBoosting ? speedFactor * 8 : speedFactor * 3) + t.shake * speedFactor * speedFactor * 4
       swayValue = isBoosting ? (speedFactor + 0.25) * 30 : MathUtils.lerp(swayValue, swayTarget, delta * 20)

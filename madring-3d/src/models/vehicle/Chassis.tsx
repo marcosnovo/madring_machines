@@ -31,6 +31,7 @@ import { Color, MeshPhysicalMaterial } from 'three'
 
 import { getState, mutation, useStore } from '../../store'
 import { getPlayer } from '../../vehicle/CarController'
+import { DRACO_PATH } from '../../draco'
 import { asset } from '../../assets'
 
 const c = new Color()
@@ -152,7 +153,10 @@ function prepare(scene: Group): CarParts {
 export const Chassis = forwardRef<Group, PropsWithChildren<unknown>>(({ children }, ref) => {
   const crashAudio = useRef<PositionalAudioImpl>(null!)
   const wheels = useStore((s) => s.wheels)
-  const { scene } = useGLTF(asset('models/f1car-2026.glb'))
+  // The glb is not Draco-compressed, but drei's default is to fetch a decoder
+  // from a Google CDN "just in case" — point it at the vendored one instead:
+  // this game makes no third-party network requests.
+  const { scene } = useGLTF(asset('models/f1car-2026.glb'), DRACO_PATH)
   const parts = useMemo(() => prepare(scene as Group), [scene])
 
   // Hand the wheel objects to the store refs so effects (dust, skid marks)

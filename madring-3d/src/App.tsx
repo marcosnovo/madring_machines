@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { DirectionalLight } from 'three'
 import { Layers, Vector3 } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, OrbitControls, PerspectiveCamera, Sky } from '@react-three/drei'
+import { Environment, Sky } from '@react-three/drei'
 
 import { HideMouse, Keyboard } from './controls'
 import { Cameras } from './effects'
@@ -105,11 +105,13 @@ function DevProbe(): null {
 
 function App(): JSX.Element {
   const [light, setLight] = useState<DirectionalLight | null>(null)
-  const [dpr, editor, shadows] = useStore((s) => [s.dpr, s.editor, s.shadows])
+  const [dpr, shadows] = useStore((s) => [s.dpr, s.shadows])
 
+  // `.` toggles the live tuning panel (ui/Editor.ts). Unlike the upstream
+  // editor it does NOT switch cameras — the whole point is tuning by feel,
+  // with the car still drivable while the panel is open.
   const ToggledEditor = useToggle(Editor, 'editor')
   const ToggledMap = useToggle(Minimap, 'map')
-  const ToggledOrbitControls = useToggle(OrbitControls, 'editor')
 
   return (
     <Intro>
@@ -158,7 +160,6 @@ function App(): JSX.Element {
         />
         <Sun light={light} />
         {import.meta.env.DEV && <DevProbe />}
-        <PerspectiveCamera makeDefault={editor} fov={75} near={0.3} far={7000} position={[0, 20, 20]} />
         {/* The car is not a physics body — see src/vehicle/. It carries the
             sun's shadow target and the chase camera, exactly as before. */}
         <Vehicle>
@@ -169,7 +170,6 @@ function App(): JSX.Element {
         <Crowd />
         <Environment files="textures/dikhololo_night_1k.hdr" />
         <ToggledMap />
-        <ToggledOrbitControls />
       </Canvas>
       <SpeedLines />
       <Clock />

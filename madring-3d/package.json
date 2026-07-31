@@ -3,14 +3,13 @@
   "version": "0.1.0",
   "description": "3D circuit racing mode — a derivative of @pmndrs/racing-game / colyseus/react-racing-game",
   "keywords": [
-    "physics",
-    "cannon-es",
-    "vehicle",
-    "use-cannon"
+    "racing",
+    "vehicle-dynamics",
+    "three.js",
+    "react-three-fiber"
   ],
   "main": "src/main.jsx",
   "dependencies": {
-    "@react-three/cannon": "^6.3.0",
     "@react-three/drei": "^9.4.4",
     "@react-three/fiber": "^8.0.12",
     "inter-ui": "^3.19.3",
