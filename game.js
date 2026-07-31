@@ -3637,7 +3637,10 @@ class MainMenuScene extends Phaser.Scene {
 
         // Rows already have their own tap zone (adjust), so "back" needs its
         // own separate tappable element rather than overloading a row tap.
-        addTxt(GW / 2, GH - 20, '◀  BACK', { fontSize: '15px', color: '#555', fontStyle: 'bold' })
+        // Off-center on x: the persistent fullscreen button (HudOverlayScene)
+        // sits at (GW/2, GH-40) and, being the topmost scene, wins a center
+        // tap outright — a back control at the same x is unreachable by touch.
+        addTxt(GW / 2 - 180, GH - 20, '◀  BACK', { fontSize: '15px', color: '#555', fontStyle: 'bold' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
 
         return c;
@@ -3670,7 +3673,10 @@ class MainMenuScene extends Phaser.Scene {
             bodyY += 44;
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+        // Off-center on x: the persistent fullscreen button (HudOverlayScene)
+        // sits at (GW/2, GH-40) and, being the topmost scene, wins a center
+        // tap outright — a back control at the same x is unreachable by touch.
+        addTxt(GW / 2 - 180, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
@@ -3746,7 +3752,10 @@ class MainMenuScene extends Phaser.Scene {
             y += 16;
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+        // Off-center on x: the persistent fullscreen button (HudOverlayScene)
+        // sits at (GW/2, GH-40) and, being the topmost scene, wins a center
+        // tap outright — a back control at the same x is unreachable by touch.
+        addTxt(GW / 2 - 180, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
@@ -3775,7 +3784,10 @@ class MainMenuScene extends Phaser.Scene {
             addTxt(GW / 2 + 10, y, action, { fontSize: '24px', color: '#ccc' }).setOrigin(0, 0.5);
         });
 
-        addTxt(GW / 2, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
+        // Off-center on x: the persistent fullscreen button (HudOverlayScene)
+        // sits at (GW/2, GH-40) and, being the topmost scene, wins a center
+        // tap outright — a back control at the same x is unreachable by touch.
+        addTxt(GW / 2 - 180, GH - 46, 'ESC  ·  BACK', { fontSize: '16px', color: '#555' })
             .setOrigin(0.5).setInteractive({ useHandCursor: true }).on('pointerdown', () => this._showMain());
         return c;
     }
