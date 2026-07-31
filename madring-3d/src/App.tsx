@@ -9,7 +9,7 @@ import { isTouchCapable } from './controls/touchCapable'
 import { Cameras } from './effects'
 import { Ambient, Circuit, Crowd, OpponentCars, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
-import { Clock, Editor, Help, Intro, Minimap, PickColor, PositionBoard, Speed, SpeedLines, StartLights } from './ui'
+import { Clock, Editor, Help, Intro, Minimap, PickColor, PositionBoard, RotateGate, Speed, SpeedLines, StartLights } from './ui'
 import { useToggle } from './useToggle'
 
 const layers = new Layers()
@@ -194,6 +194,7 @@ function App(): JSX.Element {
       <Keyboard />
       <GamepadInput />
       <TouchControls />
+      <RotateGate />
     </Intro>
   )
 }

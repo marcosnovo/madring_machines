@@ -820,8 +820,13 @@ button {
  * width to spare, height to spare of. So below this height DRIFT moves out
  * of the vertical stack and into the same row as BRAKE/GO, left of them —
  * same bottom edge, one extra column, using the width the screen actually has.
+ *
+ * Gated on `orientation: landscape` too, not just the height: a short window
+ * isn't necessarily a wide one (e.g. ~360x500, a narrow embedded viewport) —
+ * without the width that comes with real landscape, this row has nowhere to
+ * put the extra column and DRIFT lands on top of the steer pad instead.
  */
-@media (max-height: 500px) {
+@media (max-height: 500px) and (orientation: landscape) {
   .touch-handbrake {
     right: calc(16px + 128px + 14px + 92px + 14px);
     bottom: var(--pedal-clear);
@@ -912,4 +917,52 @@ button {
 
 .touch-device .speed-text {
   margin-top: -24px;
+}
+
+/* --------------- ROTATE GATE (ui/RotateGate.tsx) --------------- */
+/*
+ * Portrait is not a supported orientation — see RotateGate's own comment for
+ * why. z-index above the Intro screen's `.fullscreen` (9999) so it wins over
+ * "Click to start" too; `inset:0` plus a fully opaque background means
+ * nothing under it — HUD, canvas, or the intro — is visible or reachable
+ * until the device (or window) goes landscape.
+ */
+.rotate-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: #101010;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  font-family: 'Inter var', sans-serif;
+}
+
+.rotate-gate-icon {
+  font-size: 4em;
+  animation: rotateGateSpin 2.4s ease-in-out infinite;
+}
+
+.rotate-gate p {
+  font-size: 1.1em;
+  color: #b0b0b0;
+  max-width: 80vw;
+}
+
+@keyframes rotateGateSpin {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  50%,
+  70% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(-90deg);
+  }
 }
