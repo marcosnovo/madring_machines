@@ -707,7 +707,13 @@ button {
   height: 150px;
   pointer-events: auto;
   touch-action: none;
-  background: rgba(8, 10, 16, 0.55);
+  /* Low-opacity on purpose: in a chase camera the car sits right where the
+     pedal cluster and steer pad have to go for thumb reach, so "clearly see
+     the car" and "the buttons must be findable" push against each other.
+     Dropping the fill this far keeps the buttons legible by their border and
+     label while the car reads through them instead of vanishing under a
+     dark disc. */
+  background: rgba(8, 10, 16, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   display: flex;
@@ -743,7 +749,10 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 10, 16, 0.62);
+  /* Same low-opacity reasoning as .touch-steer above: BRAKE/GO/DRIFT/BOOST
+     sit directly over the car in a chase view, so the fill has to be light
+     enough for the car to read through it while resting. */
+  background: rgba(8, 10, 16, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 50%;
   color: #e8e6e1;
@@ -762,11 +771,18 @@ button {
  * (ui/Speed — a ~200px gauge anchored bottom:60px;right:60px, same corner a
  * throttle pedal wants). Rather than fight it pixel-for-pixel across every
  * viewport, the whole pedal cluster is raised clear of it: `--pedal-clear`
- * is a floor for how far up the pedals sit, scaled a little with viewport
- * height so it isn't wasted space on a tall phone.
+ * is a floor for how far up the pedals sit, scaled with viewport height.
+ *
+ * The old floor (210px) was sized for a tall phone and never revisited for
+ * landscape: a landscape phone is ~360-420px tall, so `bottom: 210px` on a
+ * 150px-tall steer pad put its TOP edge at y=0 — flush with the top of the
+ * screen, on top of the clock/camera button. 26vh keeps the same visual
+ * proportion on a tall viewport (it lands near the old 210-260px range
+ * there) while actually shrinking on a short one instead of hitting a floor
+ * that assumes there's always ≥750px to work with.
  */
 .touch-controls {
-  --pedal-clear: clamp(210px, 28vh, 260px);
+  --pedal-clear: clamp(90px, 26vh, 220px);
 }
 
 .touch-throttle {
@@ -795,12 +811,30 @@ button {
   font-size: 0.78em;
 }
 
+/*
+ * Stacking DRIFT above GO costs 142px of extra height (128px pedal + 14px
+ * gap) on top of whatever --pedal-clear already reserves. That's fine on a
+ * tall phone (there's 800+px to spend) but on a landscape phone (~350-430px
+ * tall) it pushes DRIFT's top edge above the position board no matter how
+ * small --pedal-clear gets. Landscape has the opposite problem to portrait —
+ * width to spare, height to spare of. So below this height DRIFT moves out
+ * of the vertical stack and into the same row as BRAKE/GO, left of them —
+ * same bottom edge, one extra column, using the width the screen actually has.
+ */
+@media (max-height: 500px) {
+  .touch-handbrake {
+    right: calc(16px + 128px + 14px + 92px + 14px);
+    bottom: var(--pedal-clear);
+  }
+}
+
 .touch-boost {
   /* Anchored from the top, not stacked onto the pedal cluster: the top-right
-     corner is the position board's (ui/RaceHud, top:60px;right:60px) — this
-     just needs to clear *that*, not the bottom-right gauge. */
+     corner is the position board's (ui/RaceHud). The `.touch-device` block
+     below shrinks that board specifically so this clearance can stay small
+     instead of guessing a number large enough for the full-size desktop one. */
   right: 16px;
-  top: 190px;
+  top: 72px;
   width: 76px;
   height: 76px;
   font-size: 0.82em;
@@ -810,9 +844,10 @@ button {
 
 .touch-camera {
   position: absolute;
-  /* Clock (ui/Clock, top:60px;left:60px) starts just past this button's
-     bottom-right corner — kept a few px smaller/tighter than the other round
-     buttons so the two don't touch. */
+  /* Clock (ui/Clock, top:60px;left:60px on desktop; repositioned below on
+     .touch-device) starts just past this button's bottom-right corner —
+     kept a few px smaller/tighter than the other round buttons so the two
+     don't touch. */
   left: 10px;
   top: 10px;
   pointer-events: auto;
@@ -827,4 +862,54 @@ button {
   align-items: center;
   justify-content: center;
   font-size: 1.4em;
+}
+
+/* --------------- COMPACT HUD (App.tsx sets .touch-device on <html>) --------------- */
+/*
+ * .clock / .speed / .positionboard were sized for a spacious desktop viewport
+ * (60px margins, up to 5em text). On a phone — especially a short landscape
+ * one — that much chrome plus the touch pedals leaves almost no clear view of
+ * the car and, before this, the position board and the brake/boost buttons
+ * physically overlapped. `.touch-device` is set for exactly the same devices
+ * TouchControls renders on (same isTouchCapable() check), so this never
+ * touches desktop/mouse play.
+ */
+.touch-device .clock {
+  /* Shares the top-left corner with .touch-camera (left:10px;top:10px;
+     width:46px) — pushed right of it instead of on top of it. */
+  top: 10px;
+  left: 64px;
+  font-size: 1.7em;
+  letter-spacing: -2px;
+}
+
+.touch-device .positionboard {
+  top: 10px;
+  right: 12px;
+}
+
+.touch-device .positionboard-pos {
+  font-size: 1.9em;
+}
+
+.touch-device .positionboard-of {
+  font-size: 1.15em;
+}
+
+.touch-device .positionboard-lap {
+  font-size: 0.75em;
+}
+
+.touch-device .speed {
+  bottom: 12px;
+  right: 12px;
+  font-size: 1.4em;
+}
+
+.touch-device .speed-gauge {
+  width: 120px;
+}
+
+.touch-device .speed-text {
+  margin-top: -24px;
 }
