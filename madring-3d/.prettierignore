@@ -7,3 +7,4 @@ package.json
 
 src/circuit/road.ts
 src/circuit/fit.json
+src/circuit/barriers.ts

@@ -600,3 +600,72 @@ button {
     transform: rotate(0deg) scale(1);
   }
 }
+
+/* --------------- RACE HUD (start lights + position board) --------------- */
+
+.startlights {
+  position: absolute;
+  top: 14%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  padding: 14px 20px;
+  background: rgba(8, 10, 16, 0.82);
+  border-radius: 12px;
+  align-items: center;
+}
+
+.startlight {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2a2126;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.7);
+}
+
+.startlight.lit {
+  background: #e6281e;
+  box-shadow: 0 0 18px 4px rgba(230, 40, 30, 0.75);
+}
+
+.startlight.go {
+  background: #2fd05a;
+  box-shadow: 0 0 18px 4px rgba(47, 208, 90, 0.75);
+}
+
+.startlights-go {
+  font-weight: 700;
+  font-size: 1.6em;
+  letter-spacing: 2px;
+  color: #2fd05a;
+  padding-left: 8px;
+}
+
+.positionboard {
+  position: absolute;
+  top: 60px;
+  right: 60px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.positionboard-pos {
+  font-weight: 700;
+  font-size: 3.2em;
+  letter-spacing: -2px;
+}
+
+.positionboard-of {
+  font-weight: 200;
+  font-size: 1.8em;
+  opacity: 0.7;
+}
+
+.positionboard-lap {
+  display: block;
+  font-weight: 500;
+  font-size: 1.1em;
+  letter-spacing: 1px;
+  opacity: 0.85;
+}

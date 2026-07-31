@@ -32,7 +32,12 @@ export interface RaceEntry {
   position: number
 }
 
-const ZERO_INPUT: CarInput = { steer: 0, throttle: 0, brake: 0, handbrake: false, boost: false }
+/**
+ * Grid hold: brake below the 0.5 reverse-engage threshold, so the field sits
+ * still on the sloped start straight instead of rolling off it (the start
+ * line is on a grade; with no input every car creeps downhill).
+ */
+const HOLD_INPUT: CarInput = { steer: 0, throttle: 0, brake: 0.45, handbrake: false, boost: false }
 
 /** The AI field. Pace/consistency spread gives a race, not a train. */
 const DRIVERS: DriverSpec[] = [
@@ -150,8 +155,8 @@ export class RaceSession {
     let playerEvents: StepEvents = { crossedSF: 0, wallHit: 0 }
     for (const entry of this.entries) {
       let input: CarInput
-      if (entry.isPlayer) input = live ? playerInput : ZERO_INPUT
-      else input = live ? entry.ai!.update(dt, cars, this.brakes) : ZERO_INPUT
+      if (entry.isPlayer) input = live ? playerInput : HOLD_INPUT
+      else input = live ? entry.ai!.update(dt, cars, this.brakes) : HOLD_INPUT
       const events = entry.car.step(dt, input)
       this.brakes.set(entry.car, input.brake)
       if (entry.isPlayer) playerEvents = events

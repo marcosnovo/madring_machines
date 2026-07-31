@@ -56,12 +56,19 @@ Vehicle dynamics code and car model — APEX FORMULA 2026, by Avi Hacker, J.D.
     model), and src/vehicle/CarController.ts adapts js/physics.js (CarPhysics:
     powertrain, gears, aero, TC/ABS, the speed-dependent steering clamp, the
     analytic wall response), js/controls.js (digital steering shaping) and
-    js/contact.js (footprint constants). Each adapted file carries the
-    copyright/licence notice and a statement of changes at the top, as
-    Apache-2.0 §4 requires. The main changes: translation to TypeScript,
-    re-targeting the wall constraint at this project's measured per-side
-    corridor, removal of the tyre thermal/wear/fuel/ERS/weather systems, and
-    the addition of a handbrake input, a boost gauge and live tuning hooks.
+    js/contact.js (footprint constants). The race layer is adapted from the
+    same project: src/race/AiDriver.ts from js/ai.js (pure pursuit on the
+    racing line, braking-horizon speed control, avoidance/overtaking,
+    defending, mistakes, boost tactics), src/race/contact.ts from js/contact.js
+    (oriented-footprint SAT) and the collision passes of js/race.js, and
+    src/race/RaceSession.ts follows js/race.js's grid → five-lights → racing
+    phase machine. Each adapted file carries the copyright/licence notice and
+    a statement of changes at the top, as Apache-2.0 §4 requires. The main
+    changes: translation to TypeScript, re-targeting the wall constraint and
+    the AI at this project's measured per-side corridor and elastic-band
+    racing line, removal of the tyre thermal/wear/fuel/ERS/weather and
+    race-direction systems, and the addition of a handbrake input, a boost
+    gauge and live tuning hooks.
 
     Model: public/models/f1car-2026.glb is that project's assets/f1car-2026.glb,
     verbatim. Its ASSET_PROVENANCE.md declares it project-authored (generated

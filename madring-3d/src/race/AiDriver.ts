@@ -64,7 +64,9 @@ export class AiDriver {
     this.line = line
     this.driver = driver
     this.random = random
-    this.skill = 0.945 + 0.055 * driver.pace
+    // Wider than the reference's 0.94 + 0.06·pace: with a single car model and
+    // no tyre wear, corner-speed trust is the only thing separating drivers.
+    this.skill = 0.88 + 0.12 * driver.pace
     this.mistakeCooldown = 8 + this.random() * 8
   }
 

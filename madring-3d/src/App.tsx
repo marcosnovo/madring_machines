@@ -6,9 +6,9 @@ import { Environment, Sky } from '@react-three/drei'
 
 import { GamepadInput, HideMouse, Keyboard } from './controls'
 import { Cameras } from './effects'
-import { Circuit, Crowd, Vehicle } from './models'
+import { Ambient, Circuit, Crowd, OpponentCars, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
-import { Clock, Editor, Help, Intro, Minimap, PickColor, Speed, SpeedLines } from './ui'
+import { Clock, Editor, Help, Intro, Minimap, PickColor, PositionBoard, Speed, SpeedLines, StartLights } from './ui'
 import { useToggle } from './useToggle'
 
 const layers = new Layers()
@@ -166,12 +166,16 @@ function App(): JSX.Element {
           {light && <primitive object={light.target} />}
           <Cameras />
         </Vehicle>
+        <OpponentCars />
         <Circuit />
         <Crowd />
+        <Ambient />
         <Environment files="textures/dikhololo_night_1k.hdr" />
         <ToggledMap />
       </Canvas>
       <SpeedLines />
+      <StartLights />
+      <PositionBoard />
       <Clock />
       <ToggledEditor />
       <Help />

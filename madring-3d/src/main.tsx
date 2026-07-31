@@ -7,6 +7,8 @@ import App from './App'
 import { getState, mutation } from './store'
 import { getLayout } from './circuit/layout'
 import { getPlayer } from './vehicle/CarController'
+import { getRace } from './race/RaceSession'
+import { getRaceLine } from './race/line'
 import { tuning } from './vehicle/tuning'
 
 import { asset } from './assets'
@@ -18,5 +20,5 @@ createRoot(document.getElementById('root')!).render(<App />)
 // Dev-only handle so a headless browser can inspect the car and the layout.
 if (import.meta.env.DEV) {
   const globals = window as unknown as Record<string, unknown>
-  globals.__game = { getState, mutation, getLayout, getPlayer, tuning }
+  globals.__game = { getState, mutation, getLayout, getPlayer, getRace, getRaceLine, tuning }
 }

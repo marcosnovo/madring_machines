@@ -43,6 +43,7 @@ import type { InstancedMesh, Mesh, Object3D as Object3DType, Shader } from 'thre
 
 import { asset } from '../../assets'
 import { getLayout, nearestIndex } from '../../circuit/layout'
+import { getTrackFrame, surfaceY } from '../../circuit/trackFrame'
 import { DRACO_PATH } from '../../draco'
 import { CIRCUIT_MODEL } from './Circuit'
 import { useGLTF } from '@react-three/drei'
@@ -59,7 +60,11 @@ const CELL = 1.5
 /** Spectators per square metre of seating. */
 const DENSITY = 0.22
 /** Hard ceiling on instances. */
-const MAX_SPECTATORS = 7000
+const MAX_SPECTATORS = 9000
+/** Corners tighter than this get standing spectators along the walls, 1/m. */
+const FENCE_CURV = 1 / 220
+/** How many stand per metre of wall on each side of a corner. */
+const FENCE_DENSITY = 0.4
 /** Body size, metres. */
 const BODY_W = 0.52
 const BODY_H = 0.95
@@ -215,6 +220,43 @@ function buildCrowd(scene: Object3DType): CrowdData {
       colour.set(SKIN[(random() * SKIN.length) | 0])
       skins.push(colour.r, colour.g, colour.b)
       phases.push(random())
+    }
+  }
+
+  // --- standing spectators along the walls, where the corners are ---------
+  // The grandstands cover the straights; corners draw a fence crowd. Stand
+  // them just outside the wall face (the same walls the car is clamped
+  // against, so they are always behind whatever barrier is rendered there),
+  // facing the racing line.
+  const track = getTrackFrame()
+  for (let i = 0; i < track.N && phases.length < MAX_SPECTATORS; i++) {
+    const s = track.samples[i]
+    if (s.curv < FENCE_CURV) continue
+    for (const side of [1, -1]) {
+      const wall = side > 0 ? s.wallPos : s.wallNeg
+      const want = track.ds * FENCE_DENSITY
+      let count = Math.floor(want)
+      if (random() < want - count) count++
+      for (let k = 0; k < count; k++) {
+        const lat = side * (wall + 1.1 + random() * 1.6)
+        const along = (random() - 0.5) * track.ds
+        const x = s.x + s.nx * lat + s.tx * along
+        const z = s.z + s.nz * lat + s.tz * along
+        position.set(x, surfaceY(track, x, z, i), z)
+        forward.set(s.x - x, 0, s.z - z)
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1)
+        forward.normalize()
+        dummy.position.copy(position)
+        dummy.quaternion.setFromUnitVectors(zAxis, forward)
+        dummy.scale.setScalar(0.92 + random() * 0.22)
+        dummy.updateMatrix()
+        matrices.push(...dummy.matrix.elements)
+        colour.set(SHIRTS[(random() * SHIRTS.length) | 0])
+        shirts.push(colour.r, colour.g, colour.b)
+        colour.set(SKIN[(random() * SKIN.length) | 0])
+        skins.push(colour.r, colour.g, colour.b)
+        phases.push(random())
+      }
     }
   }
 

@@ -50,9 +50,14 @@ const OUT = resolve(ROOT, 'src/circuit/barriers.ts')
  */
 const BARRIER_MATERIALS = /^(nd_walls1|concrete_smooth|rubber|wire_fence|wire_fence_green|Steel_Brushed_Stainless|signs_metal)/
 
-/** Ray heights above the sampled road surface, metres. */
-const RAY_LOW = 0.55
-const RAY_HIGH = 1.15
+/**
+ * Ray heights above the sampled road surface, metres. A surface counts as a
+ * wall when rays at two of the three heights hit it at (nearly) the same
+ * lateral distance — vertical and at least ~0.55 m tall. The lowest pair
+ * exists because the circuit has knee-high concrete dividers (~0.6 m) a car
+ * must not drive over; kerbs (~0.1 m) stay below all three.
+ */
+const RAY_HEIGHTS = [0.25, 0.55, 1.0]
 /** The two heights must agree to within this to count as one wall, metres. */
 const AGREE = 1.2
 /** Hits nearer the centreline than this are furniture, not walls, metres. */
@@ -195,8 +200,8 @@ function cast(ox, oy, oz, dx, dz, maxDist) {
   const seen = new Set()
   const steps = Math.ceil(maxDist / (CELL / 2))
   for (let s = 0; s <= steps; s++) {
-    const px = ox + dx * (s * CELL) / 2
-    const pz = oz + dz * (s * CELL) / 2
+    const px = ox + (dx * (s * CELL)) / 2
+    const pz = oz + (dz * (s * CELL)) / 2
     for (let ax = -1; ax <= 1; ax++) {
       for (let az = -1; az <= 1; az++) {
         const k = cellKey(Math.floor(px / CELL) + ax, Math.floor(pz / CELL) + az)
@@ -224,18 +229,20 @@ function barrierAt(s, side) {
   const dz = s.nz * side
   const edge = side > 0 ? s.edgeL : s.edgeR
   const maxDist = edge + BEYOND_EDGE
-  const low = cast(s.x, s.y + RAY_LOW, s.z, dx, dz, maxDist)
-  if (!low) return { d: 0, mat: null }
-  const high = cast(s.x, s.y + RAY_HIGH, s.z, dx, dz, maxDist)
-  if (!high || Math.abs(high.d - low.d) > AGREE) {
-    // A fence with an open lower gap (catch fence on posts): accept the high
-    // ray alone if the low ray found nothing within AGREE of it.
-    if (high && (!low || Math.abs(high.d - low.d) > AGREE) && low.d > high.d) return { d: 0, mat: null }
-    return { d: 0, mat: null }
+  const hits = RAY_HEIGHTS.map((h) => cast(s.x, s.y + h, s.z, dx, dz, maxDist))
+  let best = null
+  for (let a = 0; a < hits.length; a++) {
+    for (let b = a + 1; b < hits.length; b++) {
+      const ha = hits[a]
+      const hb = hits[b]
+      if (!ha || !hb || Math.abs(ha.d - hb.d) > AGREE) continue
+      const near = ha.d <= hb.d ? ha : hb
+      if (near.d < MIN_KEEP) continue
+      if (!best || near.d < best.d) best = near
+    }
   }
-  const d = Math.min(low.d, high.d)
-  if (d < MIN_KEEP) return { d: 0, mat: null }
-  return { d, mat: DIAG ? triMat[low.t] : null }
+  if (!best) return { d: 0, mat: null }
+  return { d: best.d, mat: DIAG ? triMat[best.t] : null }
 }
 
 console.log(`surveying ${N} samples...`)

@@ -18,6 +18,7 @@ import type { Group, Object3D } from 'three'
 import { asset } from '../../assets'
 import { DRACO_PATH } from '../../draco'
 import { getRace } from '../../race/RaceSession'
+import { getPlayer } from '../../vehicle/CarController'
 import { getTrackFrame, surfaceY } from '../../circuit/trackFrame'
 import { prepare } from './Chassis'
 import type { CarParts } from './Chassis'
@@ -58,7 +59,7 @@ export function OpponentCars(): JSX.Element {
 
   useFrame((state, delta) => {
     const track = getTrackFrame()
-    const playerGroup = state.camera
+    const player = getPlayer()
     for (let i = 0; i < aiEntries.length; i++) {
       const group = groups.current[i]
       if (!group) continue
@@ -86,8 +87,8 @@ export function OpponentCars(): JSX.Element {
         wheel.rotation.x = angle
       }
 
-      const dx = car.x - playerGroup.position.x
-      const dz = car.z - playerGroup.position.z
+      const dx = car.x - player.x
+      const dz = car.z - player.z
       const near = dx * dx + dz * dz < SHADOW_RANGE_SQ
       if (group.userData.shadows !== near) {
         group.userData.shadows = near

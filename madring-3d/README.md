@@ -65,6 +65,16 @@ minimap, `I` shows the full key list, and `.` opens the **live tuning panel** �
 every constant of the car, the camera and the body attitude, adjustable while
 driving, persisted to localStorage (see *Making it drive*).
 
+A **gamepad** works too (standard mapping, hot-pluggable): left stick steers —
+analog, dead-zoned and curve-shaped, live-tunable — RT/LT are analog
+throttle/brake, `A` boosts, `X` is the handbrake, `Y` cycles the camera, `B`
+resets. Keyboard and pad are merged per channel every tick, so both stay live.
+
+You are not alone out there: the game is a **five-car race**. Four AI drivers
+grid up ahead of you, the start gantry runs a five-red-lights sequence (the
+field is held until lights-out), and a position board keeps score — see *The
+race*.
+
 ## The circuit
 
 The circuit is a 3D model:
@@ -211,13 +221,27 @@ off the model.
 ![the run down to the north loop](docs/backstraight.png)
 
 **The walls.** Each sample knows how far the asphalt runs to either side; the
-wall face stands 0.8 m outside that edge, per side, per sample — the same line
-the old cannon boxes stood on. Every physics tick the car's yaw-aware footprint
-is clamped against those limits *analytically* (the wall-space impact response
-is adapted from APEX FORMULA 2026): the position is corrected only along the
-wall normal, the tangential velocity survives a graze at 72–94%, and the
-outward velocity becomes a small separation speed. There is nothing to tunnel
-through, at any speed, because there is no discrete collision to miss.
+wall face stands 0.8 m outside that edge — *unless the wall the player can see
+stands closer*. The asphalt edge is the only closed line the road scan can
+measure, but this artist paved generously: at the pit straight, the run-off
+aprons and the lay-bys the corridor keeps going for up to 15 m past the
+rendered barriers, and a clamp at the asphalt edge let the car drive clean
+through a drawn wall (players noticed). So the shipped model is surveyed a
+second time: `npm run build:barriers` raycasts the compressed .glb from the
+centreline outwards at every sample, at two heights (a hit must be vertical
+and wall-sized — kerbs, painted lines and overhead signage do not register),
+and writes the *visible barrier line* to `src/circuit/barriers.ts`. The wall
+limit per side is then `min(asphalt edge + 0.8 m, measured barrier)`,
+slew-limited along the lap so a wall's leading edge is an angled funnel
+rather than an 8 m sideways teleport. Over half the lap the visible barrier
+is what you now hit.
+
+Every physics tick the car's yaw-aware footprint is clamped against those
+limits *analytically* (the wall-space impact response is adapted from APEX
+FORMULA 2026): the position is corrected only along the wall normal, the
+tangential velocity survives a graze at 72–94%, and the outward velocity
+becomes a small separation speed. There is nothing to tunnel through, at any
+speed, because there is no discrete collision to miss.
 
 Swept from 128 spawn points around the lap, both sides, at 30 / 60 / 90 m/s
 and 90° / 60° / 45° / 30° / 20° incidence — 1,920 impacts through the real
@@ -225,7 +249,11 @@ compiled controller: **zero escapes, zero penetration beyond the wall face**,
 at every angle and speed (the cannon chain, at its best, still leaked 2–8% of
 shallow impacts). Confirmed in a real browser, stepping the game's own module
 at 60 Hz: head-on at 288 km/h the car never crosses the wall face and comes
-away at 16 km/h.
+away at 16 km/h. (That sweep was also the alibi for the drivable-through
+walls above: it proved the *analytic* wall watertight while the analytic wall
+stood somewhere the player could not see. Both were true. The barrier survey
+closed the gap, and driving at the rendered walls at five places around the
+lap now stops at the rendered wall, at zero over-penetration.)
 
 **Nothing else collides**, same as before: grandstands, the pit building, the
 city, fences, tyre stacks are decoration. A street circuit is defined by its
@@ -242,16 +270,19 @@ lap and reading `WebGLRenderer.info`:
 
 | | min | median | max |
 |---|---|---|---|
-| draw calls / frame | 216 | 730 | 1036 |
-| triangles / frame | 288 k | 889 k | 1.52 M |
+| draw calls / frame | 182 | 533 | 1237 |
+| triangles / frame | 182 k | 574 k | 1.64 M |
 
-against 1,481 meshes and 1,689,008 triangles in the file.
+against 1,481 meshes and 1,689,008 triangles in the file, measured at the same
+16 teleport points with the race running.
 
-That is up from 142 / 466 / 839 and 124 k / 651 k / 1.27 M, and almost all of
-the increase is the field of view: the chase camera now runs at 62–84° instead
-of a fixed 50°, so a good deal more of the circuit is inside the frustum. The
-crowd is 2 draw calls and 24 k triangles of that. It is a deliberate trade —
-see *Making it arcade*.
+The previous survey read 216 / 730 / 1036 and 288 k / 889 k / 1.52 M. What
+changed since: four AI cars (~45 draw calls and ~28 k triangles each, but only
+when inside the frustum — the max above is the pack in view, the min is the
+far side of the circuit from it), the flags/birds/crowd additions (5 draw
+calls, ~55 k triangles, total), and AI cars only cast shadows within 120 m of
+the player. The min/median moving *down* despite more content is teleport
+placement relative to the pack, not an optimisation claim.
 
 Two corrections to how this is measured. Those numbers **exclude the shadow
 pass**: three.js calls `info.reset()` again *after* rendering shadow maps, so
@@ -281,7 +312,7 @@ the sun follows the car — its shadow frustum used to sit at a fixed world
 position, which on a circuit this size meant nothing near the player was ever
 shadowed. See *Lighting* for why that frustum is only 170 m across.
 
-The crowd is 6,078 spectators in **two draw calls**: two `InstancedMesh`es of
+The crowd is 7,751 spectators in **two draw calls**: two `InstancedMesh`es of
 two triangles each. See *The crowd*.
 
 ### La Monumental
@@ -349,7 +380,12 @@ The car is one analytic rigid body in the track frame, stepped at a fixed
   harvests it back;
 - a **speed-dependent steering clamp** (`0.05 + 0.42/(1 + 0.085·v)` rad, the
   reference's curve) plus rate-limited digital steering, so held arrow keys
-  ask for a usable wheel angle at 300 km/h and full lock in the hairpin;
+  ask for a usable wheel angle at 300 km/h and full lock in the hairpin. The
+  attack and centre-return rates are tunable from the panel (the shipped
+  return is faster than the reference's — releasing the key straightens the
+  car crisply instead of letting the lock linger). A **gamepad stick bypasses
+  the digital shaping entirely** and is followed near-directly through the
+  same physical clamp;
 - assists **on by default** — TC, ABS, auto-gear, a lateral stability term —
   which is why it is approachable despite being a simulation. `Space` is the
   drift/handbrake: rear-only brake force, reduced rear grip, and the
@@ -387,7 +423,8 @@ Only the player can judge feel, so every constant is live. `.` opens a leva
 panel (upstream shipped leva; the panel is new) with the car — mass, power,
 boost power, μ, downforce CLA, drag CDA, rolling drag, cornering stiffness and
 its front/rear split, yaw inertia — the steering clamp's four curve
-parameters, the four assists as toggles, the handbrake's force and grip, the
+parameters plus the keyboard attack/centre-return rates, the gamepad dead
+zone and response curve, the four assists as toggles, the handbrake's force and grip, the
 camera's FOV base/speed/boost ramps, its easing rate and shake, and the
 body-attitude gains. Values apply on the next physics tick (no rebuild, no
 respawn), persist to localStorage, and `reset tuning` restores the shipped
@@ -414,6 +451,16 @@ unconditionally, which threw away the −90° pitch the overhead camera is decla
 with and pointed it at the horizon. Pressing `C` twice used to give you a
 screenful of sky.
 
+A camera *switch* is now a cut, not a glide. The mode-change transition used
+to ride the same `delta * cameraEase` lerp that smooths the chase lag — and
+`delta` is clamped to 1/30 s while wall-clock time is not, so below ~30 fps
+the first-person pose could take seconds of real time to arrive. Cycling `C`
+at a normal tapping pace showed bird's-eye and two chase-like views, and the
+cockpit camera appeared to have vanished after the first pass. On a mode
+change the camera now teleports to the new mode's pose (position, FOV,
+swivel) in the same frame; the easing still smooths everything *within* a
+mode.
+
 Mark II adds, all tunable from the panel: a subtle **speed shake** on top of
 the sway (quadratic in speed, so it only appears near the top end), a camera
 **kick on wall impacts**, a faster FOV punch when the boost engages, and a
@@ -429,7 +476,9 @@ is km/h now, and correct.
 
 ## The crowd
 
-`src/models/track/Crowd.tsx`. 6,078 spectators, in **two draw calls**.
+`src/models/track/Crowd.tsx`. 7,751 spectators, in **two draw calls** — 6,078
+seated off the model's grandstand geometry, and 1,673 standing along the walls
+where the corners are.
 
 They are placed off the model, not typed in. At load the four grandstand
 materials are pulled out of the parsed glTF and their upward-facing triangles
@@ -458,7 +507,13 @@ the nearest point of the measured racing line, which is the only place the
 player ever is. The idle sway is a vertex shader with a per-instance phase, so
 it costs nothing on the CPU. They neither cast nor receive shadows.
 
-Total: **2 draw calls, 24,312 triangles**, against 1.69 M in the circuit.
+The standing spectators need no grandstand: every sample of the measured road
+whose curvature is tighter than 1/220 m puts a loose line of people 1–3 m
+*outside* the wall face on both sides — the same barrier-aware wall line the
+car is clamped against, so they are always behind whatever is rendered there —
+facing the racing line, at ~0.4 per metre of wall.
+
+Total: **2 draw calls, 31,004 triangles**, against 1.69 M in the circuit.
 
 ## Lighting
 
@@ -503,9 +558,11 @@ reflection rather than its colour. Replacing it would mean shipping another
 
 **Ours, and still approximate**
 
-- The invisible walls. They stand on the measured asphalt edge because that is
-  the only closed line we can measure; a real circuit's barriers are further out
-  in the run-off and closer in the corners.
+- The invisible walls. They stand on the measured asphalt edge — or on the
+  measured *visible* barrier line where that is nearer (see *Collision*). Where
+  the model has no wall-like surface within 24 m of the asphalt on a side, the
+  asphalt edge still rules, so an open run-off can still end at an unmarked
+  limit.
 - Which section is La Monumental, from curvature analysis. The model does not
   label its corners.
 - No collision on anything but the asphalt and those walls.
@@ -515,10 +572,37 @@ reflection rather than its colour. Replacing it would mean shipping another
   2026 model (NOTICE section 2), verified against a measuring rig; how it is
   filmed is ours — see *Making it drive*.
 
-## Known limitations
+## The race
 
-- **Single player.** The opponent-car plumbing was removed with the Colyseus
-  server; the minimap and rank UI that depended on it are gone or simplified.
+Four AI opponents, adapted from APEX FORMULA 2026's `ai.js` onto the measured
+track frame (`src/race/`, NOTICE section 2):
+
+- **The racing line** is an elastic band: 320 relaxation passes pull every
+  sample towards its neighbours' chord while the (barrier-aware) walls push
+  back, then each sample gets the corner speed of the same tyre + downforce
+  model the player's car runs. Line and car can never disagree about where the
+  road is, because both are derived from the same measured corridor.
+- **The drivers** run pure pursuit on that line with a braking-horizon speed
+  target, per-driver skill and consistency (mistakes are late braking that
+  runs wide, on a cooldown), side-by-side avoidance and overtaking, one legal
+  defensive line change per straight, and boost when chasing within range.
+  They drive the *same* `CarController` as the player — same tyres, same
+  walls, same gearbox — differing only in who supplies the input.
+- **Car-vs-car contact** is the reference's oriented-footprint SAT with a few
+  positional passes and one low-restitution impulse per pair, applied from a
+  shared velocity snapshot so pile-ups have no entry-order bias.
+- **The start** is a proper one: the field grids up two-abreast (player at the
+  back), is held on brakes through a five-red-lights sequence with a random
+  hold (0.5–1.5 s) before release — cadence per the reference — while the
+  model's own start-gantry light board glows through the same sequence. A
+  position board (P/laps) keeps score at 4 Hz.
+
+Headless verification, stepping the shipped module at 60 Hz in a real browser:
+260 simulated seconds of five-car racing cost 292 ms of CPU, the AI complete
+laps in ~90–96 s with **zero wall escapes and zero stalls**, and an AI-driven
+player lap records zero corridor violations.
+
+## Known limitations
 - **The leaderboard is local.** Completed laps go to `localStorage` and are
   listed under `L`. Nothing is uploaded.
 - **The scenery is not solid** — see *Collision*. Fences, tyre stacks and the
@@ -534,11 +618,14 @@ reflection rather than its colour. Replacing it would mean shipping another
   racing line. From the track they read as a crowd; from the wrong angle they
   read as what they are. There are no animations beyond a shader sway, and the
   stands are populated evenly rather than by where people would actually sit.
-- **Nothing in the model moves or makes a noise**: the LED boards do not play,
-  the marshals' flags do not wave, and there is no crowd noise. Foliage and
-  fence materials were `BLEND` in the source and are re-declared alpha-tested
-  here — several hundred thousand blended triangles would need depth sorting
-  the scene cannot afford — which crisps up their edges.
+- **No crowd noise.** The model now moves a little — the LED boards scroll
+  their textures, ~40 instanced flags wave in a vertex shader along the walls,
+  two flocks of birds circle, and the gantry light board runs the start
+  sequence (`src/models/track/Ambient.tsx`, 3 draw calls for all of it) — but
+  it is still silent beyond the cars. Foliage and fence materials were `BLEND`
+  in the source and are re-declared alpha-tested here — several hundred
+  thousand blended triangles would need depth sorting the scene cannot
+  afford — which crisps up their edges.
 - **`import.meta.env.DEV` exposes `window.__game`** (`getState`, `mutation`,
   `getLayout`, `getPlayer` — the live vehicle controller — and `tuning`),
   `window.__render` (draw calls and triangles for the heaviest render pass of
