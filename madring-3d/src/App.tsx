@@ -4,7 +4,7 @@ import { Layers, Vector3 } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Sky } from '@react-three/drei'
 
-import { GamepadInput, HideMouse, Keyboard } from './controls'
+import { GamepadInput, HideMouse, Keyboard, TouchControls } from './controls'
 import { Cameras } from './effects'
 import { Ambient, Circuit, Crowd, OpponentCars, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
@@ -184,6 +184,7 @@ function App(): JSX.Element {
       <HideMouse />
       <Keyboard />
       <GamepadInput />
+      <TouchControls />
     </Intro>
   )
 }

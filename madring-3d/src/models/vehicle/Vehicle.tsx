@@ -22,6 +22,7 @@ import { useFrame } from '@react-three/fiber'
 import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Skid } from '../../effects'
 import { cameraRig } from '../../effects/Cameras'
 import { gamepad } from '../../controls/Gamepad'
+import { touchInput } from '../../controls/Touch'
 import type { Camera } from '../../store'
 import { getState, mutation, setState, useStore } from '../../store'
 import { useToggle } from '../../useToggle'
@@ -84,17 +85,24 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
     const controls = getState().controls
 
     // ---- fixed-step simulation -------------------------------------------
-    // Keyboard and gamepad are merged per channel: whichever asks for more
-    // wins, and a moved stick makes the steering proportional (`analog`).
+    // Keyboard, gamepad and touch are merged per channel: whichever asks for
+    // more wins, and a moved stick or a dragged touch pad makes the steering
+    // proportional (`analog`). Touch follows exactly the rule the gamepad
+    // already had — it only takes over steering when the digital keys are
+    // untouched, so nothing fights: at most one of gamepad/touch is ever
+    // actually in a player's hands at once, but both stay live regardless.
     const keySteer = (controls.left ? 1 : 0) - (controls.right ? 1 : 0)
-    const padSteering = gamepad.connected && gamepad.steer !== 0 && keySteer === 0
+    const gamepadSteering = gamepad.connected && gamepad.steer !== 0
+    const touchSteering = touchInput.steer !== 0
+    const analogSteer = gamepadSteering ? gamepad.steer : touchSteering ? touchInput.steer : 0
+    const padSteering = (gamepadSteering || touchSteering) && keySteer === 0
     const input = {
-      steer: padSteering ? gamepad.steer : keySteer,
+      steer: padSteering ? analogSteer : keySteer,
       analog: padSteering,
-      throttle: Math.max(controls.forward ? 1 : 0, gamepad.throttle),
-      brake: Math.max(controls.backward ? 1 : 0, gamepad.brake),
-      handbrake: controls.brake || gamepad.handbrake,
-      boost: controls.boost || gamepad.boost,
+      throttle: Math.max(controls.forward ? 1 : 0, gamepad.throttle, touchInput.throttle),
+      brake: Math.max(controls.backward ? 1 : 0, gamepad.brake, touchInput.brake),
+      handbrake: controls.brake || gamepad.handbrake || touchInput.handbrake,
+      boost: controls.boost || gamepad.boost || touchInput.boost,
     }
     S.accumulator += delta
     while (S.accumulator >= FIXED_DT) {
@@ -195,11 +203,7 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       } else {
         // sideways lead into the corner, a little squat under power, and the
         // camera drawing *in* with speed rather than falling away from it
-        v.set(
-          (Math.sin(steeringValue) * speed) / 3.2,
-          1.15 - player.throttle * 0.12 + speedFactor * 0.35,
-          -5.2 - speed / 28 + (controls.backward ? 0.9 : 0),
-        )
+        v.set((Math.sin(steeringValue) * speed) / 3.2, 1.15 - player.throttle * 0.12 + speedFactor * 0.35, -5.2 - speed / 28 + (controls.backward ? 0.9 : 0))
       }
 
       const cam = cameraRig.persp

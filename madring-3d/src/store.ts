@@ -6,6 +6,7 @@ import type { Group } from 'three'
 import type { GetState, SetState, StateSelector } from 'zustand'
 
 import { keys } from './keys'
+import { isTouchCapable } from './controls/touchCapable'
 import { getPlayer, GEAR_TOP } from './vehicle/CarController'
 
 export const cameras = ['DEFAULT', 'FIRST_PERSON', 'BIRD_EYE'] as const
@@ -13,6 +14,26 @@ export const cameras = ['DEFAULT', 'FIRST_PERSON', 'BIRD_EYE'] as const
 export const dpr = 1.5 as const
 export const levelLayer = 1 as const
 export const maxBoost = 100 as const
+
+/**
+ * Mobile quality tier.
+ *
+ * A phone GPU is not this sandbox's SwiftShader, but it is also not a desktop
+ * discrete card, and the scene is sized for one: AI cars, a crowd, ambient
+ * birds/flags and a 2048² shadow map that follows the player (see App.tsx and
+ * the README's *Performance* section for the draw-call/triangle budget this
+ * is answering). Decided once, from `isTouchCapable()` — the same check the
+ * touch overlay uses — so it can never disagree with whether the overlay is
+ * showing, and a desktop browser (no touch points) takes neither branch.
+ *
+ * This only changes the *default* of the two knobs the leva panel already
+ * exposed (`Performance` → dpr/shadows, src/ui/Editor.ts) — nothing is
+ * removed, and a touch user who wants shadows back, or more dpr, can still
+ * open the panel and ask for it.
+ */
+const isMobileTier = isTouchCapable()
+/** Flat 1x pixel ratio on touch devices — no supersampling. Desktop keeps `dpr` (1.5). */
+const MOBILE_DPR = 1 as const
 
 /**
  * What is left of the old cannon-era vehicle config.
@@ -174,6 +195,7 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
 
   return {
     ...booleans,
+    shadows: isMobileTier ? false : booleans.shadows,
     actionInputMap,
     actions,
     bestCheckpoint: 0,
@@ -184,7 +206,7 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
     color: '#f5b70f',
     controls,
     keyBindingsWithError: [],
-    dpr,
+    dpr: isMobileTier ? MOBILE_DPR : dpr,
     finished: 0,
     get,
     keyInput: null,
