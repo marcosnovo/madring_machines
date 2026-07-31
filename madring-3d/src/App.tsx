@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react'
 import type { DirectionalLight } from 'three'
 import { Layers, Vector3 } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Debug, Physics } from '@react-three/cannon'
 import { Environment, OrbitControls, PerspectiveCamera, Sky } from '@react-three/drei'
 
-import { getLayout } from './circuit/layout'
 import { HideMouse, Keyboard } from './controls'
 import { Cameras } from './effects'
-import { Circuit, CircuitPhysics, Crowd, Ground, Killzone, LapTiming, Vehicle } from './models'
+import { Circuit, Crowd, Vehicle } from './models'
 import { levelLayer, useStore } from './store'
-import { Clock, Editor, Help, Intro, Minimap, PickColor, Speed } from './ui'
+import { Clock, Editor, Help, Intro, Minimap, PickColor, Speed, SpeedLines } from './ui'
 import { useToggle } from './useToggle'
 
 const layers = new Layers()
@@ -109,12 +107,9 @@ function App(): JSX.Element {
   const [light, setLight] = useState<DirectionalLight | null>(null)
   const [dpr, editor, shadows] = useStore((s) => [s.dpr, s.editor, s.shadows])
 
-  const ToggledDebug = useToggle(Debug, 'debug')
   const ToggledEditor = useToggle(Editor, 'editor')
   const ToggledMap = useToggle(Minimap, 'map')
   const ToggledOrbitControls = useToggle(OrbitControls, 'editor')
-
-  const { grid } = getLayout()
 
   return (
     <Intro>
@@ -164,24 +159,19 @@ function App(): JSX.Element {
         <Sun light={light} />
         {import.meta.env.DEV && <DevProbe />}
         <PerspectiveCamera makeDefault={editor} fov={75} near={0.3} far={7000} position={[0, 20, 20]} />
-        <Physics allowSleep broadphase="SAP" defaultContactMaterial={{ contactEquationRelaxation: 4, friction: 1e-3 }}>
-          <ToggledDebug scale={1.0001} color="white">
-            <Vehicle angularVelocity={[0, 0, 0]} position={grid.position} rotation={grid.rotation}>
-              {light && <primitive object={light.target} />}
-              <Cameras />
-            </Vehicle>
-            <CircuitPhysics />
-            <Ground />
-            <LapTiming />
-            <Killzone y={-40} />
-          </ToggledDebug>
-        </Physics>
+        {/* The car is not a physics body — see src/vehicle/. It carries the
+            sun's shadow target and the chase camera, exactly as before. */}
+        <Vehicle>
+          {light && <primitive object={light.target} />}
+          <Cameras />
+        </Vehicle>
         <Circuit />
         <Crowd />
         <Environment files="textures/dikhololo_night_1k.hdr" />
         <ToggledMap />
         <ToggledOrbitControls />
       </Canvas>
+      <SpeedLines />
       <Clock />
       <ToggledEditor />
       <Help />

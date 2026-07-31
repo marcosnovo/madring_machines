@@ -28,14 +28,14 @@
  */
 
 export const VEHICLE_DEFAULTS = {
-  wheelbase: 2.65,
-  frontCg: 1.35,
-  rearCg: 1.3,
-  frontTrack: 1.7,
-  rearTrack: 1.7,
+  wheelbase: 3.4,
+  frontCg: 1.84,
+  rearCg: 1.56,
+  frontTrack: 1.72,
+  rearTrack: 1.68,
   cgHeight: 0.31,
   yawInertia: 1080,
-  wheelRadius: 0.38,
+  wheelRadius: 0.33,
   wheelInertia: 1.45,
   cornerStiffness: 78000,
   longitudinalStiffness: 92000,

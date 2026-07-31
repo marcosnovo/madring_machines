@@ -25,11 +25,11 @@ type InputWithDisplayName = keyof typeof inputDisplayNameMap
 const isInputWithDisplayName = (v: PropertyKey): v is InputWithDisplayName => Object.hasOwnProperty.call(inputDisplayNameMap, v)
 
 const actionDisplayMap: Record<BindableActionName, { displayName: string; order: number }> = {
-  backward: { displayName: 'Backward', order: 1 },
-  boost: { displayName: 'Turbo Boost', order: 6 },
-  brake: { displayName: 'Drift', order: 4 },
+  backward: { displayName: 'Brake / Reverse', order: 1 },
+  boost: { displayName: 'Boost (Override)', order: 6 },
+  brake: { displayName: 'Drift / Handbrake', order: 4 },
   camera: { displayName: 'Toggle Camera', order: 14 },
-  editor: { displayName: 'Editor', order: 8 },
+  editor: { displayName: 'Tuning Panel', order: 8 },
   forward: { displayName: 'Forward', order: 0 },
   help: { displayName: 'Help', order: 9 },
   honk: { displayName: 'Honk', order: 5 },

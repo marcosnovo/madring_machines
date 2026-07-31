@@ -559,3 +559,44 @@ button {
 .attribution a:hover {
   color: #ccc;
 }
+
+/* Sensation-of-speed overlay — see ui/SpeedLines.tsx. */
+
+.speedlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.15s linear;
+}
+
+.speedlines-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 52%, rgba(6, 10, 18, 0.55) 88%, rgba(4, 6, 12, 0.8) 100%);
+}
+
+.speedlines-streaks {
+  position: absolute;
+  inset: -12%;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.09) 0deg 0.7deg, transparent 0.7deg 4.3deg);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 46%, black 82%);
+  mask-image: radial-gradient(ellipse at center, transparent 46%, black 82%);
+  animation: speedlines-flicker 0.24s steps(2) infinite;
+}
+
+.speedlines.boosting .speedlines-vignette {
+  background: radial-gradient(ellipse at center, transparent 48%, rgba(20, 60, 110, 0.45) 84%, rgba(8, 20, 44, 0.8) 100%);
+}
+
+@keyframes speedlines-flicker {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(1.1deg) scale(1.015);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
