@@ -32,7 +32,28 @@ yarn-error.log*
 
 .idea
 
-# The Sketchfab source model is 135 MB. Only its compressed output ships
-# (public/models/circuit-draco.glb, 8.8 MB). See NOTICE for where to get it and
-# `npm run build:assets` for how to turn one into the other.
+# The Sketchfab source model (135 MB) IS committed, despite this rule.
+#
+# The rule was added after those files were already tracked, and .gitignore
+# has no effect on tracked files — so the intent recorded here ("only the
+# compressed output ships") never actually took hold. That was checked, not
+# assumed: `git ls-files assets/madring-sketchfab/` lists scene.bin, scene.gltf
+# and 60 textures.
+#
+# It is left committed deliberately. Untracking them now would NOT make clones
+# any smaller — the blobs stay in history, so `git clone` still transfers them
+# — it would only remove the benefit of a clone being self-sufficient. Anyone
+# can clone this repo and re-run the whole asset pipeline without a Sketchfab
+# account. Redistribution is fine under CC-BY-4.0 as long as attribution is
+# given, which it is (see NOTICE, and the on-screen credit in the intro).
+#
+# HAZARD if you ever re-export the model: scene.bin is 97.7 MiB and GitHub's
+# hard per-file limit is 100 MiB. There is 2.3 MiB of headroom. A re-export
+# that grows it past that will make the push fail outright, and the fix at
+# that point is Git LFS or a history rewrite, not a bigger commit.
+#
+# What the games actually load at runtime is far smaller, and both derivatives
+# are committed too: public/models/circuit-draco.glb (8.9 MB) for the 3D mode
+# and ../images/madring-overhead.jpg (1.1 MB) for the 2D one. See
+# `npm run build:assets` for how the source turns into those.
 /assets/madring-sketchfab
