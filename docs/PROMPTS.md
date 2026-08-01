@@ -110,6 +110,24 @@ ya funciona con la geometría real de un circuito.
 La atribución de CC-BY-4.0 es **obligatoria**, no cortesía: el crédito a Dave
 Love va en la pantalla que ve el jugador, no solo en el NOTICE.
 
+### Sobre el modelo 3D del circuito (el paso manual)
+
+Es la única pieza que no se descarga sola, y conviene decirlo claro porque es
+donde se atasca cualquiera que lo intente:
+
+- Hay que bajarlo **a mano desde Sketchfab** (pide cuenta y aceptar la
+  licencia). De las opciones de descarga, la buena es **glTF (~66 MB)**, no el
+  `.glb` de 134 MB.
+- **En este repo ya va incluido**, así que quien clone no necesita descargarlo:
+  `git clone` y a correr. Solo hace falta bajarlo si quieres rehacer el
+  pipeline desde el origen.
+- Lo que el juego carga en runtime no es el modelo original sino sus dos
+  derivados, mucho más ligeros: `madring-3d/public/models/circuit-draco.glb`
+  (8,9 MB, comprimido con Draco) para el 3D, e `images/madring-overhead.jpg`
+  (1,1 MB, el render cenital) para el 2D.
+- Redistribuirlo está permitido por CC-BY-4.0 mientras se dé la atribución
+  —que se da—, así que incluirlo en el repo es legítimo, no un atajo.
+
 ---
 
 ## Nota de honestidad
