@@ -19,12 +19,19 @@
  * How the sprite is built
  * ───────────────────────
  * An orthographic camera looks straight down (+Z of the model — its nose —
- * pointing screen-up) and renders the car once per driver, with the body
- * paint replaced by the exact clearcoat recipe madring-3d's Chassis.tsx uses
- * (MeshPhysicalMaterial, metalness 0.9, roughness 0.4, clearcoat 1.0,
- * clearcoatRoughness 0.03) tinted with that driver's CHAR_COLORS entry, under
- * the same sort of sky environment the overhead bake uses — clearcoat paint
- * is nothing but what it reflects.
+ * pointing screen-up) and renders the car once per driver, with the body paint
+ * replaced by the clearcoat recipe madring-3d's Chassis.tsx uses (a
+ * MeshPhysicalMaterial with clearcoat 1.0, following the MIT three.js
+ * webgl_materials_car example) tinted with that driver's CHAR_COLORS entry.
+ *
+ * The gloss is baked here rather than faked with an overlay in game.js, which
+ * means the shine follows the actual bodywork instead of sliding over it. Three
+ * things do the work, all detailed at their definitions below: a raking
+ * mirrored key pair that lays a specular streak down each shoulder, a ring of
+ * near-horizontal rim lights that keeps a bright lip on the silhouette against
+ * dark tarmac, and a procedural studio environment with real light shapes in it
+ * for the clearcoat to reflect — clearcoat paint is nothing but what it
+ * reflects, and a plain gradient sky reflects as one flat wash.
  *
  * A real F1 car is ~2.7× longer than wide; drawn honestly at a 38 px length
  * it would be 14 px wide and vanish on the aerial. The camera therefore
@@ -127,14 +134,22 @@ window.__ready = new Promise((resolve, reject) => {
         // ── material finishing, following madring-3d/src/models/vehicle/Chassis.tsx ──
         // The glb ships neutral Blender materials named body / accent / carbon /
         // tyre / glass / glow / rainlight; the finishing is done at load time.
-        const paint = new THREE.MeshPhysicalMaterial({
-            metalness: 0.9, roughness: 0.4, clearcoat: 1.0, clearcoatRoughness: 0.03,
-            envMapIntensity: 1,
-        });
-        const accentPaint = new THREE.MeshPhysicalMaterial({
-            metalness: 0.9, roughness: 0.4, clearcoat: 1.0, clearcoatRoughness: 0.03,
-            envMapIntensity: 1,
-        });
+        // Deliberately off Chassis.tsx's numbers, tuned by eye at 26×38 rather
+        // than at full 3D size:
+        //   · metalness 0.74, not 0.9 — a near-perfect metal has essentially no
+        //     diffuse term, so all its colour comes from tinted reflection and
+        //     it turns grey wherever it reflects nothing. 0.74 keeps enough
+        //     diffuse for the driver colour to stay identifiable at thumbnail
+        //     size, which matters more here than in the 3D view.
+        //   · roughness 0.22, not 0.4 — a tight highlight survives the 4×
+        //     downscale as a bright streak; a broad hazy one averages away to
+        //     a uniform pale wash, which is what the previous bake looked like.
+        //   · envMapIntensity 1.45 because the studio env below is mostly dim
+        //     with small bright lights in it, so it needs gaining up to bite.
+        const GLOSS = { metalness: 0.74, roughness: 0.22, clearcoat: 1.0,
+                        clearcoatRoughness: 0.02, envMapIntensity: 1.45 };
+        const paint = new THREE.MeshPhysicalMaterial(GLOSS);
+        const accentPaint = new THREE.MeshPhysicalMaterial(GLOSS);
         car.traverse(o => {
             if (!o.isMesh) return;
             const m = Array.isArray(o.material) ? o.material[0] : o.material;
@@ -152,14 +167,43 @@ window.__ready = new Promise((resolve, reject) => {
             }
         });
 
-        // ── lighting: mostly overhead, so the shading stays valid as the sprite rotates ──
-        scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-        const key = new THREE.DirectionalLight(0xfff4e0, 0.9);
-        key.position.set(0.25, 1, 0.15).multiplyScalar(10);
-        scene.add(key);
-        const fill = new THREE.DirectionalLight(0xdfe8ff, 0.35);
-        fill.position.set(-0.3, 1, -0.2).multiplyScalar(10);
+        // ── lighting ──
+        // The sprite is a fixed bitmap that the game rotates with the car, so
+        // anything asymmetric left-to-right would read as a sun stuck to the
+        // car's flank, swinging round every corner. Every rig below is
+        // therefore mirrored about the car's centreline (or a full ring): the
+        // shading is directional in the ways that build form, and symmetric in
+        // the one axis that would give the trick away.
+        scene.add(new THREE.AmbientLight(0xffffff, 0.13));   // low: form needs somewhere dark to fall to
+
+        // Keys: a mirrored pair raking in from each flank at roughly 30°
+        // elevation. Low beats overhead here — an overhead key floods the flat
+        // upper surfaces evenly and clips them towards white (it bleached the
+        // wings in the first attempt), whereas a raking one only catches the
+        // curve of each shoulder, leaving a bright streak per side and a dark
+        // crease down the spine. That light/dark split is the whole difference
+        // between "rounded waxed volume" and "flat colour blob".
+        for (const sx of [1, -1]) {
+            const k = new THREE.DirectionalLight(0xfff6e6, 0.80);
+            k.position.set(sx * 1.0, 0.55, 0.28).multiplyScalar(10);
+            scene.add(k);
+        }
+        // Broad soft fill straight down, cool to contrast the warm keys, so the
+        // top surfaces and the white livery panels keep detail instead of going
+        // to a gloomy blue-grey where the raking keys never reach.
+        const fill = new THREE.DirectionalLight(0xdce9ff, 0.44);
+        fill.position.set(0, 1, 0).multiplyScalar(10);
         scene.add(fill);
+
+        // Rim ring: four near-horizontal lights. Under a top-down camera the
+        // only surfaces they hit are the ones whose normals point sideways —
+        // i.e. exactly the silhouette edge — so the car keeps a bright lip all
+        // the way round and stops merging into dark tarmac.
+        for (const [rx, rz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const rim = new THREE.DirectionalLight(0xeaf2ff, 0.55);
+            rim.position.set(rx, 0.16, rz).multiplyScalar(10);
+            scene.add(rim);
+        }
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
         renderer.setPixelRatio(1);
@@ -168,17 +212,49 @@ window.__ready = new Promise((resolve, reject) => {
         renderer.toneMapping = THREE.NoToneMapping;
         renderer.setClearColor(0x000000, 0);
 
-        // Sky for the clearcoat and the metals to reflect — bright above,
-        // ground tone below, same idea as the overhead bake's environment.
+        // ── environment: a procedural studio, not just a sky ──
+        // Clearcoat paint is only ever as interesting as what it reflects, and
+        // a smooth top-to-bottom gradient reflects as one flat wash — which is
+        // exactly why the old bake looked like matte plastic. So the equirect
+        // gets real light sources painted into it: a zenith cap and two soft
+        // strip lights over the flanks, mirrored so the reflection stays
+        // symmetric under sprite rotation (see the lighting note above).
+        //
+        // Equirect convention in three.js: u = 0.5 + atan2(z, x)/2π (so +X is
+        // u=0.5 and −X is u=0/1) and v = 0 straight up, 0.5 at the horizon.
+        const EW = 512, EH = 256;
         const skyCv = document.createElement('canvas');
-        skyCv.width = 64; skyCv.height = 64;
+        skyCv.width = EW; skyCv.height = EH;
         const sctx = skyCv.getContext('2d');
-        const sg = sctx.createLinearGradient(0, 0, 0, 64);
-        sg.addColorStop(0.00, '#cfe2f8'); sg.addColorStop(0.48, '#eef4fb');
-        sg.addColorStop(0.52, '#8a8274'); sg.addColorStop(1.00, '#5c554a');
-        sctx.fillStyle = sg; sctx.fillRect(0, 0, 64, 64);
+        // Base sky deliberately dimmer than the strips: the contrast between
+        // the two is the reflection, and a bright base would erase it.
+        const sg = sctx.createLinearGradient(0, 0, 0, EH);
+        sg.addColorStop(0.00, '#9db6d2'); sg.addColorStop(0.46, '#c9d8e8');
+        sg.addColorStop(0.50, '#3b3831'); sg.addColorStop(1.00, '#22201c');
+        sctx.fillStyle = sg; sctx.fillRect(0, 0, EW, EH);
+        const blob = (cx, cy, rx, ry, a) => {          // soft elliptical light
+            sctx.save();
+            sctx.translate(cx, cy); sctx.scale(rx, ry);
+            const g = sctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+            g.addColorStop(0, `rgba(255,255,255,${a})`);
+            g.addColorStop(0.55, `rgba(255,253,246,${a * 0.55})`);
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = g; sctx.fillRect(-1, -1, 2, 2);
+            sctx.restore();
+        };
+        // Zenith cap kept weak. It is what every flat upward surface — the
+        // wings, mostly — reflects straight back at a top-down camera, so any
+        // brighter and the wings bleach to white and stop reading as the
+        // driver's colour. The flank strips carry the actual gloss: they are
+        // reflected by the curved shoulders, at the grazing angles where a
+        // clearcoat is most mirror-like.
+        blob(EW * 0.5, EH * 0.02, EW * 0.55, EH * 0.16, 0.35);   // zenith cap
+        for (const u of [0.0, 0.5, 1.0]) {                       // ±X flank strips (u=0 wraps, so paint both ends)
+            blob(EW * u, EH * 0.20, EW * 0.16, EH * 0.13, 0.80);
+        }
         const skyTex = new THREE.CanvasTexture(skyCv);
         skyTex.mapping = THREE.EquirectangularReflectionMapping;
+        skyTex.encoding = THREE.sRGBEncoding;   // canvas paints in sRGB; without this the env reads far too dark
         const pmrem = new THREE.PMREMGenerator(renderer);
         scene.environment = pmrem.fromEquirectangular(skyTex).texture;
 
