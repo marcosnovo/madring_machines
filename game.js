@@ -5,8 +5,42 @@
 // ============================================================
 
 // ── CONSTANTS ───────────────────────────────────────────────
-const GW = 1024;
-const GH = 768;
+/**
+ * The design resolution. Every scene lays itself out against these two
+ * numbers, and Phaser's Scale.FIT maps that design box onto whatever the
+ * device actually has.
+ *
+ * They are `let`, not `const`, because 1024x768 is a *landscape* box: on a
+ * phone held upright, FIT can only honour it by shrinking it until it fits
+ * the width, which on a 412x915 screen leaves a 412x309 strip of game
+ * between two enormous black bars — measured, not guessed. A top-down racer
+ * has no reason to be landscape-only, so a portrait phone gets a portrait
+ * design box instead and the same layout code fills the screen.
+ *
+ * Chosen once at boot and never changed: re-picking it on rotation would
+ * mean re-laying-out every scene mid-race. Rotating after boot just falls
+ * back to FIT's letterboxing, which is survivable; starting in the wrong
+ * shape is not.
+ *
+ * Desktop is untouched — same 1024x768 it has always had.
+ */
+let GW = 1024;
+let GH = 768;
+
+(function pickDesignSize() {
+    if (typeof window === 'undefined') return;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    // `isTouchDevice` is a hoisted function declaration further down.
+    if (!isTouchDevice() || vh <= vw) return;
+    // Width first, height from the real aspect, so a tall phone gets a tall
+    // canvas and no bars at all. Clamped so a freakish aspect ratio can't
+    // produce a canvas the menus were never laid out for.
+    GW = 720;
+    GH = Math.round(Math.min(1600, Math.max(1080, GW * (vh / vw))));
+})();
+
+/** Portrait phone layout — see GW/GH. Desktop is always false. */
+const IS_PORTRAIT = GH > GW;
 const TOTAL_LAPS = 4;               // fallback for tracks with no `laps` of their own
 const TS = 12;                       // truck half-size
 const ROT_FRAMES = 24;              // rotation angles per truck
@@ -548,6 +582,23 @@ const TRACKS = [
         boosts: [], ramps: [], tunnels: [], decor: null,
     },
 ];
+
+/**
+ * How many of the tracks above are actually shipped, counted from the top —
+ * so 1 means the MADRING and nothing else.
+ *
+ * The rest are the inherited procedural circuits. They still build and play;
+ * they are held back so the game is about the one real, measured circuit
+ * rather than a menu of twenty-four. Raise this number (or delete the two
+ * lines) to bring them back — nothing else refers to a track by index, and
+ * every place that picks one already goes through `% TRACKS.length`.
+ *
+ * Truncating rather than filtering at the menu also means BootScene never
+ * generates the hidden tracks' geometry or their full-screen theme
+ * backdrops, which is most of the loading time on a phone.
+ */
+const SHIPPED_TRACKS = 1;
+TRACKS.length = SHIPPED_TRACKS;
 
 // ── GAME STATE ──────────────────────────────────────────────
 let gs = resetGameState();
@@ -4246,18 +4297,31 @@ class RaceScene extends Phaser.Scene {
     buildHUD() {
         const bar = this.add.rectangle(GW / 2, 22, GW, 44, 0x111111, 0.88).setDepth(50).setScrollFactor(0);
         const s = { fontSize: '15px', fontFamily: 'monospace', color: '#fff' };
-        this.hPos = this.add.text(16, 8, 'POS: 1st', s).setDepth(51).setScrollFactor(0);
-        this.hLap = this.add.text(150, 8, 'LAP: 1/1', s).setDepth(51).setScrollFactor(0);
-        this.hMon = this.add.text(300, 8, '$200,000', { ...s, color: '#FFD700' }).setDepth(51).setScrollFactor(0);
-        this.hNit = this.add.text(480, 8, 'NITRO: 3', { ...s, color: '#ff6600' }).setDepth(51).setScrollFactor(0);
-        this.hRce = this.add.text(640, 8, `RACE ${gs.raceNum + 1}`, { ...s, color: '#aaa' }).setDepth(51).setScrollFactor(0);
+        // Fractions of GW, not the pixel columns this used to hardcode: the
+        // design box is 720 wide in portrait (see GW/GH up top) and the old
+        // SPD column at x=780 simply fell off the right-hand edge there.
+        // These fractions reproduce the original 1024-wide spacing exactly.
+        const col = (f) => Math.round(f * GW);
+        this.hPos = this.add.text(col(0.0156), 8, 'POS: 1st', s).setDepth(51).setScrollFactor(0);
+        this.hLap = this.add.text(col(0.1465), 8, 'LAP: 1/1', s).setDepth(51).setScrollFactor(0);
+        this.hMon = this.add.text(col(0.293), 8, '$200,000', { ...s, color: '#FFD700' }).setDepth(51).setScrollFactor(0);
+        this.hNit = this.add.text(col(0.469), 8, 'NITRO: 3', { ...s, color: '#ff6600' }).setDepth(51).setScrollFactor(0);
+        this.hRce = this.add.text(col(0.625), 8, `RACE ${gs.raceNum + 1}`, { ...s, color: '#aaa' }).setDepth(51).setScrollFactor(0);
         // speed meter bar
-        this.hSpdLbl = this.add.text(780, 8, 'SPD', s).setDepth(51).setScrollFactor(0);
-        this.hSpdBg = this.add.rectangle(820, 18, 90, 10, 0x222222, 0.8).setOrigin(0, 0.5).setDepth(50).setScrollFactor(0);
-        this.hSpdFill = this.add.rectangle(820, 18, 0, 8, 0x00ff88, 1).setOrigin(0, 0.5).setDepth(51).setScrollFactor(0);
+        this.hSpdLbl = this.add.text(col(0.762), 8, 'SPD', s).setDepth(51).setScrollFactor(0);
+        const spdX = col(0.801), spdW = col(0.088);
+        this.hSpdBg = this.add.rectangle(spdX, 18, spdW, 10, 0x222222, 0.8).setOrigin(0, 0.5).setDepth(50).setScrollFactor(0);
+        this.hSpdFill = this.add.rectangle(spdX, 18, 0, 8, 0x00ff88, 1).setOrigin(0, 0.5).setDepth(51).setScrollFactor(0);
+        this._spdW = spdW;
         this.hBoard = [];
-        const pad = 10, imgSz = 30, rowH = 42, fontSize = '28px';
-        const bw = 300, bh = pad + 4 * rowH + pad, bx = GW - bw - pad, by = 46;
+        // The 300x188 board is 29% of a 1024-wide screen but 42% of a 720-wide
+        // portrait one, where it swallowed the top-right quarter of the track.
+        // Scaled down there rather than left to dominate the view.
+        const pad = 10;
+        const imgSz = IS_PORTRAIT ? 22 : 30;
+        const rowH = IS_PORTRAIT ? 30 : 42;
+        const fontSize = IS_PORTRAIT ? '19px' : '28px';
+        const bw = IS_PORTRAIT ? 228 : 300, bh = pad + 4 * rowH + pad, bx = GW - bw - pad, by = 46;
         this.add.rectangle(bx + bw / 2, by + bh / 2, bw, bh, 0x111111, 0.85).setDepth(50).setOrigin(0.5).setScrollFactor(0);
         for (let i = 0; i < 4; i++) {
             const ry = by + pad + i * rowH;
@@ -4270,7 +4334,12 @@ class RaceScene extends Phaser.Scene {
         // mini-map for multi-screen tracks
         if (this.isBig) {
             const mw = 140, mh = Math.round(mw * this.td.H / this.td.W);
-            const mx = GW - mw - 12, my = GH - mh - 12;
+            // Bottom-right on desktop. In portrait that corner belongs to the
+            // thumb — it is exactly where the accelerate button has to sit —
+            // so the map moves under the top bar on the left instead, which is
+            // dead space there and leaves the whole bottom band for controls.
+            const mx = IS_PORTRAIT ? 12 : GW - mw - 12;
+            const my = IS_PORTRAIT ? 56 : GH - mh - 12;
             this.miniBg = this.add.rectangle(mx, my, mw, mh, 0x000022, 0.7).setOrigin(0, 0).setDepth(50).setScrollFactor(0).setStrokeStyle(2, 0xff2a6d, 0.9);
             this.miniG = this.add.graphics().setDepth(51).setScrollFactor(0);
             this.miniX = mx; this.miniY = my; this.miniW = mw; this.miniH = mh;
@@ -4313,14 +4382,15 @@ class RaceScene extends Phaser.Scene {
         // nitro at once. The Phaser game config already raises
         // input.activePointers so simultaneous touches are all tracked.
 
-        // Mini-map (isBig tracks only) sits bottom-right and its height
-        // depends on the track's own aspect ratio (buildHUD already sized
-        // and positioned it into this.miniY/this.miniH before we run). Keep
-        // the whole right-hand cluster — all one row, radius 82 at most —
-        // clear of its top edge rather than assuming a fixed size.
-        const clusterR = 82;
-        let rightY = GH - 90;
-        if (this.isBig && this.miniY != null) {
+        // In portrait the mini-map has already been moved to the top-left
+        // (see buildHUD), so the bottom band is free and the cluster can just
+        // sit at a fixed thumb-height above the bottom edge. In landscape the
+        // map is still bottom-right, and its height depends on the track's
+        // aspect ratio, so the cluster has to be lifted clear of its top edge
+        // rather than assuming a fixed size.
+        const clusterR = IS_PORTRAIT ? 62 : 82;
+        let rightY = GH - (IS_PORTRAIT ? 112 : 90);
+        if (!IS_PORTRAIT && this.isBig && this.miniY != null) {
             rightY = Math.min(rightY, this.miniY - clusterR - 16);
         }
 
@@ -4341,15 +4411,19 @@ class RaceScene extends Phaser.Scene {
             this.touchZones.push(circle, txt);
         };
 
-        // steering — bottom-left half, two side-by-side zones. Plain ASCII
-        // "<"/">" rather than Unicode arrow glyphs, which some mobile
-        // browsers' monospace fallback renders as blank tofu boxes.
-        zone(100, GH - 90, 64, 0x2a6dff, '<',
+        // Steering — bottom-left, under the left thumb. Plain ASCII "<"/">"
+        // rather than Unicode arrow glyphs, which some mobile browsers'
+        // monospace fallback renders as blank tofu boxes.
+        const steerR = IS_PORTRAIT ? 58 : 64;
+        const steerY = GH - (IS_PORTRAIT ? 112 : 90);
+        const steerX = IS_PORTRAIT ? 78 : 100;
+        const steerGap = IS_PORTRAIT ? 132 : 144;
+        zone(steerX, steerY, steerR, 0x2a6dff, '<',
             () => { this.cur.left.isDown = true; },
-            () => { this.cur.left.isDown = false; }, '36px');
-        zone(244, GH - 90, 64, 0x2a6dff, '>',
+            () => { this.cur.left.isDown = false; }, IS_PORTRAIT ? '32px' : '36px');
+        zone(steerX + steerGap, steerY, steerR, 0x2a6dff, '>',
             () => { this.cur.right.isDown = true; },
-            () => { this.cur.right.isDown = false; }, '36px');
+            () => { this.cur.right.isDown = false; }, IS_PORTRAIT ? '32px' : '36px');
 
         // accelerate / brake / nitro — one row bottom-right (rather than
         // stacking nitro above accelerate) so the cluster only ever needs
@@ -4357,35 +4431,33 @@ class RaceScene extends Phaser.Scene {
         // the mini-map and the top HUD/leaderboard.
 
         // accelerate — dominant zone, held most of the time
-        zone(GW - 100, rightY, clusterR, 0x00ff88, 'GAS',
+        zone(GW - (IS_PORTRAIT ? 74 : 100), rightY, clusterR, 0x00ff88, 'GAS',
             () => { this.cur.up.isDown = true; },
             () => { this.cur.up.isDown = false; });
 
         // brake / reverse — smaller, to the left of accelerate
-        zone(GW - 260, rightY, 50, 0xff4444, 'BRK',
+        zone(GW - (IS_PORTRAIT ? 192 : 260), rightY, IS_PORTRAIT ? 44 : 50, 0xff4444, 'BRK',
             () => { this.cur.down.isDown = true; },
             () => { this.cur.down.isDown = false; });
 
-        // nitro — distinct button further left, echoes the HUD's
-        // "NITRO: n" orange accent
-        zone(GW - 384, rightY, 52, 0xff6600, 'NITRO',
-            () => { this.spc.isDown = true; this.spc._justDown = true; },
-            () => { this.spc.isDown = false; });
+        // Nitro — echoes the HUD's "NITRO: n" orange accent. In portrait it
+        // goes ABOVE the accelerate button rather than further left: there is
+        // no width left for a third column beside the steering pair, but
+        // plenty of height, and stacking keeps it under the same thumb.
+        if (IS_PORTRAIT) {
+            zone(GW - 74, rightY - clusterR - 52, 44, 0xff6600, 'NITRO',
+                () => { this.spc.isDown = true; this.spc._justDown = true; },
+                () => { this.spc.isDown = false; }, '11px');
+        } else {
+            zone(GW - 384, rightY, 52, 0xff6600, 'NITRO',
+                () => { this.spc.isDown = true; this.spc._justDown = true; },
+                () => { this.spc.isDown = false; });
+        }
 
-        // Portrait nudge — the track view is built for a 1024x768 landscape
-        // canvas; Phaser.Scale.FIT still renders it (letterboxed) in
-        // portrait, so nothing is broken, but it's small. Rather than lock
-        // orientation (unreliable/permission-gated on iOS Safari without a
-        // fullscreen gesture), just suggest rotating.
-        this.rotateHint = this.add.text(GW / 2, 70, 'ROTATE YOUR DEVICE FOR A BIGGER VIEW', {
-            fontSize: '15px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fff',
-            backgroundColor: '#000000',
-        }).setOrigin(0.5).setPadding(8, 4, 8, 4).setAlpha(0.75).setDepth(202).setScrollFactor(0);
-        this.touchZones.push(this.rotateHint);
-        const updateRotateHint = () => this.rotateHint.setVisible(this.scale.isPortrait);
-        updateRotateHint();
-        this.scale.on(Phaser.Scale.Events.RESIZE, updateRotateHint);
-        this.events.once('shutdown', () => this.scale.off(Phaser.Scale.Events.RESIZE, updateRotateHint));
+        // The "rotate your device" nudge that used to live here is gone: the
+        // canvas is now laid out portrait-first on a portrait phone (see
+        // GW/GH), so upright is a supported way to play rather than a
+        // degraded one to apologise for.
     }
 
     update(time, delta) {
@@ -5381,7 +5453,7 @@ class RaceScene extends Phaser.Scene {
         // speed meter
         const spd = Math.hypot(t0.vx, t0.vy);
         const ratio = Math.min(1, spd / ((t0.nAct ? t0.maxSpd * 1.5 : t0.maxSpd) + 0.001));
-        this.hSpdFill.width = 90 * ratio;
+        this.hSpdFill.width = this._spdW * ratio;
         const col = ratio > 0.9 ? 0xff2a6d : ratio > 0.6 ? 0xffcc00 : 0x00ff88;
         this.hSpdFill.fillColor = col;
         if (this.posOrder) {
@@ -5513,17 +5585,24 @@ class ShopScene extends Phaser.Scene {
         this.lvlTxts = [];
         this.bars = [];
 
+        // The three columns (name / level+bar / buy) were pixel columns for a
+        // 1024-wide box; portrait is 720 (see GW/GH up top), which put the buy
+        // button past the right edge. Scaling x by the box width keeps desktop
+        // pixel-identical (hx = 1) and keeps the columns from colliding when
+        // it isn't — the segment pitch has to scale too, or a 12-segment bar
+        // grows into the buy column.
+        const hx = GW / 1024;
         UPGRADES.forEach((u, i) => {
             const y = 160 + i * 85;
-            this.add.text(180, y, u.name, {
+            this.add.text(180 * hx, y, u.name, {
                 fontSize: '22px', fontFamily: 'monospace', color: '#fff', fontStyle: 'bold',
             });
-            this.add.text(180, y + 28, '$' + u.cost.toLocaleString(), {
+            this.add.text(180 * hx, y + 28, '$' + u.cost.toLocaleString(), {
                 fontSize: '14px', fontFamily: 'monospace', color: '#888',
             });
 
             const cur = gs[u.key];
-            const lt = this.add.text(480, y, `${cur}/${u.max}`, {
+            const lt = this.add.text(480 * hx, y, `${cur}/${u.max}`, {
                 fontSize: '18px', fontFamily: 'monospace', color: '#0af',
             });
             this.lvlTxts.push(lt);
@@ -5532,14 +5611,14 @@ class ShopScene extends Phaser.Scene {
             const barGroup = [];
             for (let b = 0; b < u.max && b < 12; b++) {
                 const filled = b < cur;
-                const seg = this.add.rectangle(480 + b * 20, y + 30, 16, 10,
+                const seg = this.add.rectangle(480 * hx + b * 20 * hx, y + 30, 16 * hx, 10,
                     filled ? 0x00aaff : 0x222244).setOrigin(0, 0);
                 barGroup.push(seg);
             }
             this.bars.push(barGroup);
 
             // buy button
-            const btn = this.add.text(780, y + 4, '[ BUY ]', {
+            const btn = this.add.text(780 * hx, y + 4, '[ BUY ]', {
                 fontSize: '20px', fontFamily: 'monospace', color: '#0f0',
                 backgroundColor: '#002200', padding: { x: 10, y: 4 },
             }).setInteractive({ useHandCursor: true });
