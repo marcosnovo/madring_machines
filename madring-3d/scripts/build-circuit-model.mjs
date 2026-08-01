@@ -13,7 +13,9 @@
  *   1. bakes the alignment transform found by fit-circuit.mjs into the scene
  *      root, so the model sits on our centreline with no runtime fiddling;
  *   2. drops vertex attributes nothing reads (TANGENT — three derives the
- *      tangent frame in the fragment shader; unused TEXCOORD_1);
+ *      tangent frame in the fragment shader; unused TEXCOORD_1), and unpacks
+ *      the storage quantisation scripts/shrink-source.mjs applied to the
+ *      source so Draco gets plain floats to work from;
  *   3. welds duplicate vertices;
  *   4. splits every mesh that spans more than CHUNK_SPAN metres into a grid of
  *      CHUNK_SIZE-metre tiles. The source is one merged mesh per material, each
@@ -22,7 +24,7 @@
  *   5. resizes and re-encodes every texture to WebP;
  *   6. Draco-compresses the geometry.
  *
- * 134.65 MB in, 8.82 MB out, no triangles added or removed.
+ * 77.07 MB in, 8.81 MB out, no triangles added or removed.
  *
  * Run with `npm run build:model`.
  */
@@ -32,7 +34,7 @@ import { fileURLToPath } from 'node:url'
 
 import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
-import { compactPrimitive, dedup, draco, prune, textureCompress, weld } from '@gltf-transform/functions'
+import { compactPrimitive, dedup, dequantize, draco, prune, textureCompress, weld } from '@gltf-transform/functions'
 import draco3d from 'draco3dgltf'
 import sharp from 'sharp'
 
@@ -179,6 +181,15 @@ async function main() {
     }
   }
   console.log(`dropped attrs     ${dropped}`)
+
+  // ---- 2b. undo the source's storage quantisation ---------------------------
+  // scripts/shrink-source.mjs stores NORMAL as normalized int16 so scene.bin
+  // fits in git (see its header). That is a storage format, not a target one:
+  // Draco has its own, better normal codec and encodes a float attribute far
+  // more tightly than a pre-quantised one — leaving it packed cost 4 MB in the
+  // output. Unpacking here hands Draco exactly the floats it used to get, so
+  // the shipped GLB is what it always was. A no-op on an unquantised source.
+  await doc.transform(dequantize())
 
   // ---- 3. weld --------------------------------------------------------------
   await doc.transform(weld())
