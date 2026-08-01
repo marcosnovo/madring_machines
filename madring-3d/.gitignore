@@ -32,13 +32,13 @@ yarn-error.log*
 
 .idea
 
-# The Sketchfab source model (135 MB) IS committed, despite this rule.
+# The Sketchfab source model (80.8 MB) IS committed, despite this rule.
 #
 # The rule was added after those files were already tracked, and .gitignore
 # has no effect on tracked files — so the intent recorded here ("only the
 # compressed output ships") never actually took hold. That was checked, not
 # assumed: `git ls-files assets/madring-sketchfab/` lists scene.bin, scene.gltf
-# and 60 textures.
+# and 57 textures.
 #
 # It is left committed deliberately. Untracking them now would NOT make clones
 # any smaller — the blobs stay in history, so `git clone` still transfers them
@@ -47,10 +47,17 @@ yarn-error.log*
 # account. Redistribution is fine under CC-BY-4.0 as long as attribution is
 # given, which it is (see NOTICE, and the on-screen credit in the intro).
 #
-# HAZARD if you ever re-export the model: scene.bin is 97.7 MiB and GitHub's
-# hard per-file limit is 100 MiB. There is 2.3 MiB of headroom. A re-export
-# that grows it past that will make the push fail outright, and the fix at
-# that point is Git LFS or a history rewrite, not a bigger commit.
+# HAZARD if you ever re-export the model: GitHub's hard per-file limit is
+# 100 MiB, and Sketchfab's scene.bin lands at 97.7 MiB — 2.3 MiB of headroom, so
+# a re-export 3% larger would make the push fail outright, and the fix at that
+# point is Git LFS or a history rewrite, not a bigger commit.
+#
+# So do not commit a fresh export directly. Run `node scripts/shrink-source.mjs`
+# over it first: it repacks scene.bin to 72.0 MiB and the textures to 4.9 MiB
+# without moving a vertex — POSITION comes through byte for byte, which is why
+# fit.json, road.ts, barriers.ts and MADRING-VALIDATION.md all regenerate
+# bit-identical. Its header explains each step. Committing an un-shrunk export
+# would put the file back within 2.3 MiB of the limit.
 #
 # What the games actually load at runtime is far smaller, and both derivatives
 # are committed too: public/models/circuit-draco.glb (8.9 MB) for the 3D mode

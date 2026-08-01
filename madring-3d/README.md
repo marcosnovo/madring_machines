@@ -100,14 +100,18 @@ see *The crowd*, which places them off the model's own grandstand geometry.
 
 ### Shipping it
 
-The model as distributed is 134.65 MB — a 98 MB `.bin`, 37 MB of PNG (of which
-35 MB is one 4096² backdrop) and a 164 KB `.gltf`. `npm run build:model` turns
-that into **8.82 MB**, a 15.3× reduction, by
+The model as Sketchfab distributes it is 134.65 MB — a 98 MB `.bin`, 37 MB of
+PNG (of which 35 MB is one 4096² backdrop) and a 164 KB `.gltf`. What is
+committed here is 80.82 MB of that, repacked by `scripts/shrink-source.mjs`
+without moving a vertex; see *Repacking the source*. `npm run build:model` turns
+it into **8.81 MB** by
 
 1. baking in the alignment transform (below) so the runtime needs no magic
    numbers;
 2. dropping `TANGENT` and `TEXCOORD_1` — three derives the tangent frame in the
-   fragment shader, and nothing reads the second UV set;
+   fragment shader, and nothing reads the second UV set — and undoing the
+   storage quantisation `shrink-source.mjs` applied, because Draco's own normal
+   codec does better from floats;
 3. welding duplicate vertices;
 4. cutting every mesh that spans more than 320 m into 256 m tiles (see
    *Performance*);
@@ -120,9 +124,29 @@ at quality 82 is lossy, and 14-bit positions are not exact. No geometry is
 removed and nothing is simplified — the triangle count out is the triangle count
 in, 1,689,008.
 
-The source stays in `assets/madring-sketchfab/` and is **not** committed (135 MB,
-and this repository does not redistribute it). Download it from the link above to
-rebuild; `npm run build:assets` runs the fit and the compression together.
+The source stays in `assets/madring-sketchfab/` and **is** committed, so a clone
+can re-run the whole pipeline without a Sketchfab account (see the note in
+`.gitignore`). `npm run build:assets` runs the fit and the compression together.
+
+### Repacking the source
+
+`scripts/shrink-source.mjs` is what makes committing it survivable. GitHub
+rejects any single file over 100 MiB and the `.bin` arrived at 97.7 MiB, so a
+re-export that grew by 3% would have made pushes fail outright. The script takes
+that to 72.0 MiB and the textures from 36.8 MiB to 4.9 MiB — 128.6 MiB down to
+77.1 MiB — by converting the indices from `u32` to `u16` (exactly lossless: no
+primitive here has 65536 vertices), storing `NORMAL` as normalized `int16` under
+`KHR_mesh_quantization`, dropping the `TANGENT` and `TEXCOORD_1` that
+`build-circuit-model.mjs` was throwing away anyway, and re-encoding the 4096²
+backdrop PNG as a 2048² JPEG — still twice the resolution anything ships at.
+
+What it does **not** touch is `POSITION`, which comes through byte for byte.
+That is the whole point: `fit-circuit.mjs`, `scripts/madring-model-fit.js` and
+`scripts/madring-road-centre.js` derive the racing line, the lap timing and the
+barriers from these floats, so `src/circuit/{fit.json,road.ts,barriers.ts}` and
+`scripts/MADRING-VALIDATION.md` all regenerate bit-identical from the repacked
+source. The largest change anywhere in the model is 0.0015° of normal, against
+the 10-bit octahedral normals Draco ships.
 
 ### Aligning it to the geodata
 
