@@ -51,6 +51,20 @@ const PICKUP_R = 15;                // pickup collection radius
 const TRUCK_W = 26;
 const TRUCK_H = 38;
 
+/**
+ * Where the light comes from, in world radians, for the two 2D lighting cues
+ * the cars get: the contact shadow under them and the specular streak on the
+ * bodywork. It is not a free choice — it is measured off the MADRING bake.
+ * The floodlight masts around the Valdebebas pitches (world ≈1100,200 in
+ * images/madring-overhead.jpg) throw their shadows down and to the LEFT, so
+ * the sun in that photograph sits up and to the right: −45°. Shadows therefore
+ * fall at +135°, and both offsets stay fixed in world space while the sprite
+ * rotates, which is exactly what stops a top-down car reading as a sticker.
+ */
+const SUN_A = -Math.PI / 4;
+const SHADOW_DX = Math.cos(SUN_A + Math.PI) * 3.2;
+const SHADOW_DY = Math.sin(SUN_A + Math.PI) * 3.2;
+
 const C = {
     player: 0x7b5ea7, ai1: 0xf0c020, ai2: 0xe08a1e, ai3: 0xe88acc,
     road: 0x606060, roadEdge: 0x888888, dirt: 0x8B7355, grass: 0x4a8a3a,
@@ -1388,6 +1402,7 @@ class BootScene extends Phaser.Scene {
         this.genDrivers();
         this.genTrucks();
         this.genPickups();
+        this.genFxSprites();
         this._updateBar(0.4);
         this._setStatus('Building tracks…');
         this._genTracksAsync(() => {
@@ -1787,6 +1802,99 @@ class BootScene extends Phaser.Scene {
         this.textures.addCanvas('pk_nitro', cv);
     }
 
+    // ── car gloss + the MADRING's TV helicopter ──────────────────────────
+    // Four small generated textures, shared by every car and every race, so
+    // the shine costs two extra quads per car and nothing else.
+    genFxSprites() {
+        // Contact shadow. The baked car PNGs carry a soft halo that is
+        // radially symmetric — it has to be, the sprite rotates — so nothing
+        // in them says which way the light comes from and the cars read as
+        // stickers lying on the photo. This one is offset in WORLD space
+        // (see SUN_A in RaceScene), which is what makes them sit on the road:
+        // the shadow stays south-east of the car whichever way it is pointing.
+        let cv = document.createElement('canvas'); cv.width = 64; cv.height = 80;
+        let ctx = cv.getContext('2d');
+        let g = ctx.createRadialGradient(32, 40, 2, 32, 40, 30);
+        g.addColorStop(0, 'rgba(0,0,0,0.62)');
+        g.addColorStop(0.55, 'rgba(0,0,0,0.36)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.save(); ctx.translate(32, 40); ctx.scale(0.78, 1);
+        ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        this.textures.addCanvas('fx_carshadow', cv);
+
+        // Specular streak: the long soft highlight a curved painted surface
+        // throws back at a low sun. Drawn as a vertical lozenge because the
+        // sprite is rotated onto the car's own axis, and additively blended,
+        // so it brightens the paint instead of fogging it.
+        cv = document.createElement('canvas'); cv.width = 32; cv.height = 96;
+        ctx = cv.getContext('2d');
+        g = ctx.createLinearGradient(0, 0, 0, 96);
+        g.addColorStop(0, 'rgba(255,255,255,0)');
+        g.addColorStop(0.3, 'rgba(255,252,240,0.75)');
+        g.addColorStop(0.55, 'rgba(255,255,255,0.95)');
+        g.addColorStop(0.8, 'rgba(240,246,255,0.6)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(16, 48, 6, 44, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'destination-in';   // feather the sides
+        g = ctx.createLinearGradient(0, 0, 32, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,1)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 96);
+        this.textures.addCanvas('fx_glint', cv);
+
+        // TV helicopter, seen from directly above. Drawn at roughly 34 world px
+        // nose to tail — about 2.5 car lengths, so it reads at 1:1 on a phone
+        // without pretending to be to scale with a 1 px/m ground.
+        cv = document.createElement('canvas'); cv.width = 40; cv.height = 40;
+        ctx = cv.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath(); ctx.ellipse(20, 18, 8, 13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#232833';
+        ctx.beginPath(); ctx.ellipse(20, 15, 6.5, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(18, 21, 4, 15);                          // tail boom
+        ctx.fillStyle = '#aebbcd';                            // canopy
+        ctx.beginPath(); ctx.ellipse(20, 11, 3.4, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#c8202a';                            // livery flash
+        ctx.fillRect(15, 18, 10, 3);
+        ctx.fillStyle = '#232833';
+        ctx.fillRect(14, 34, 12, 2.5);                        // tailplane
+        ctx.fillRect(20, 30, 2.5, 7);                         // fin
+        this.textures.addCanvas('fx_heli', cv);
+
+        // Rotor disc: the blur the blades sweep, plus two blades inside it so
+        // the eye is given something to see turning.
+        cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
+        ctx = cv.getContext('2d');
+        // Every blade is drawn twice — a dark stroke with a pale core — because
+        // this thing flies over black asphalt and over a bone-white coach park
+        // in the same orbit, and a single-value rotor disappears over one or
+        // the other. The first attempt was pale-only and was invisible for
+        // half the lap.
+        const rg = ctx.createRadialGradient(32, 32, 6, 32, 32, 30);
+        rg.addColorStop(0, 'rgba(28,32,40,0.06)');
+        rg.addColorStop(0.75, 'rgba(28,32,40,0.20)');
+        rg.addColorStop(1, 'rgba(28,32,40,0)');
+        ctx.fillStyle = rg;
+        ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+        ctx.lineCap = 'round';
+        for (let pass = 0; pass < 2; pass++) {
+            ctx.strokeStyle = pass ? 'rgba(214,222,234,0.5)' : 'rgba(20,24,32,0.72)';
+            ctx.lineWidth = pass ? 1.4 : 3.4;
+            for (let k = 0; k < 3; k++) {
+                const a = k * Math.PI * 2 / 3;
+                ctx.beginPath();
+                ctx.moveTo(32 + Math.cos(a) * 4, 32 + Math.sin(a) * 4);
+                ctx.lineTo(32 + Math.cos(a) * 29, 32 + Math.sin(a) * 29);
+                ctx.stroke();
+            }
+        }
+        ctx.fillStyle = '#2b303a';                            // rotor head
+        ctx.beginPath(); ctx.arc(32, 32, 3, 0, Math.PI * 2); ctx.fill();
+        this.textures.addCanvas('fx_rotor', cv);
+    }
+
     // ── Shared track rendering helpers (visual canvas) ────────────────────
     // Draws dark tunnel bodies + concrete portal arches for any track that
     // has a t.tunnels array (already converted from frac → startI).
@@ -1873,6 +1981,274 @@ class BootScene extends Phaser.Scene {
                 );
                 vx.stroke();
             }
+        });
+    }
+
+    // ── MADRING circuit dressing ─────────────────────────────────────────
+    // Painted once, on top of images/madring-overhead.jpg, into the track
+    // texture — so all of it is free per frame. It touches neither the
+    // collision map (still stroked from the spline further down) nor the
+    // track's seeded `srand`, whose stream the pickup positions depend on:
+    // the scatter below runs its own generator so pickups land exactly where
+    // they landed before this function existed.
+    //
+    // WHY. The bake composites two roads: the game's ribbon, stroked at rw=46
+    // along this spline, and the 3D model's own tarmac drawn back over it so
+    // the circuit's real kerbs and markings survive. The two do not agree
+    // everywhere. Stroking the ribbon's boundary over the bake and looking at
+    // it (scratch diagnostic, corner at world ~1020,1470 among others) shows
+    // the ribbon is smooth — it is the disc-sweep of a 1280-point spline, it
+    // cannot kink — while the model's road mesh is low-poly, so around corners
+    // it leaves chunky straight-edged spurs of dark tarmac hanging outside the
+    // ribbon. Those spurs are what reads as a "rough" corner, and no control
+    // point can fix them: every cp is measured and lands on the model's own
+    // asphalt. What fixes them is telling the eye where the track ends —
+    // a track-limit line, kerbs on the corners only (a real circuit has no
+    // kerb down a straight), and a barrier line past which everything is
+    // scenery rather than a second, worse-drawn road.
+    drawMadringDressing(vx, t, wp, TW, TH, cs) {
+        const n = wp.length, half = t.rw / 2;
+        // Deterministic scatter that is NOT the track's srand — see above.
+        let ds = 0x4d41;
+        const rnd = () => { ds = (ds * 1103515245 + 12345) & 0x7fffffff; return ds / 0x7fffffff; };
+
+        // Signed turn rate, measured over ±6 waypoints (±26 px, about half a
+        // road width). Between neighbours 4.2 px apart the angle is mostly
+        // spline-sampling noise; over half a road width it describes the corner.
+        const KW = 6, curv = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+            const a = wp[(i - KW + n) % n], b = wp[i], c = wp[(i + KW) % n];
+            let d = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(b.y - a.y, b.x - a.x);
+            if (d > Math.PI) d -= Math.PI * 2; else if (d < -Math.PI) d += Math.PI * 2;
+            curv[i] = d;
+        }
+        // +perp is the RIGHT of the racing direction (screen y grows downward,
+        // so a heading of 0 — due east — has its right hand at +y, south).
+        const at = (i) => wp[((i % n) + n) % n];
+        const perpOf = (i) => {
+            const p = at(i - 4), q = at(i + 4);
+            return Math.atan2(q.y - p.y, q.x - p.x) + Math.PI / 2;
+        };
+        const off = (i, d) => {
+            const p = at(i), pa = perpOf(i);
+            return { x: p.x + Math.cos(pa) * d, y: p.y + Math.sin(pa) * d };
+        };
+
+        // Corner = turning more than 0.10 rad across that window, i.e. a radius
+        // under ~520 px (≈500 m). Runs less than 24 waypoints apart are merged
+        // so a chicane gets one continuous kerb instead of two stubs.
+        const corners = [];
+        for (let i = 0; i < n; i++) {
+            if (Math.abs(curv[i]) < 0.10) continue;
+            const last = corners[corners.length - 1];
+            if (last && i - last[1] <= 24) last[1] = i; else corners.push([i, i]);
+        }
+        if (corners.length > 1 && corners[0][0] + n - corners[corners.length - 1][1] <= 24) {
+            corners[corners.length - 1][1] = corners[0][1] + n;   // closes across index 0
+            corners.shift();
+        }
+        corners.forEach(c => { c[0] -= 6; c[1] += 6; });
+        // The complement — the straights — as [end of corner k, start of k+1].
+        const straights = corners.length
+            ? corners.map((c, k) => [c[1], corners[(k + 1) % corners.length][0] + (k === corners.length - 1 ? n : 0)])
+            : [[0, n]];
+
+        const spansPath = (ctx, spans) => {
+            ctx.beginPath();
+            spans.forEach(([i0, i1]) => {
+                for (let i = i0; i <= i1; i++) {
+                    const p = at(i);
+                    if (i === i0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                }
+            });
+        };
+
+        // A ring of constant width around the ribbon cannot be had by
+        // offsetting the centreline: on the inside of a hairpin the offset
+        // curve folds through itself and paints a bow-tie. What is wanted is
+        // the boundary of the ribbon *as a region*, so it is built that way —
+        // stroke the wide sweep, punch the narrow sweep back out of it. That
+        // is self-intersection-proof by construction and has exactly the
+        // rounded joins the collision mask already uses, so the line always
+        // lands on the real edge of the drivable surface.
+        const bc = document.createElement('canvas');
+        bc.width = Math.round(TW / cs); bc.height = Math.round(TH / cs);
+        const bx = bc.getContext('2d');
+        const band = (outer, inner, alpha, paint, spans) => {
+            bx.setTransform(1, 0, 0, 1, 0, 0);
+            bx.clearRect(0, 0, bc.width, bc.height);
+            if (cs !== 1) bx.scale(1 / cs, 1 / cs);
+            bx.globalCompositeOperation = 'source-over';
+            bx.lineCap = 'round'; bx.lineJoin = 'round';
+            bx.setLineDash([]); bx.lineDashOffset = 0;
+            paint(bx, outer);
+            bx.setLineDash([]); bx.lineDashOffset = 0;
+            bx.globalCompositeOperation = 'destination-out';
+            bx.strokeStyle = '#000'; bx.lineWidth = inner;
+            drawPath(bx, wp); bx.stroke();
+            if (spans) {
+                // One path, one stroke: two consecutive destination-in passes
+                // would intersect rather than union, leaving nothing behind.
+                bx.globalCompositeOperation = 'destination-in';
+                bx.strokeStyle = '#000'; bx.lineWidth = outer + 10;
+                spansPath(bx, spans); bx.stroke();
+            }
+            vx.save();
+            vx.globalAlpha = alpha;
+            vx.drawImage(bc, 0, 0, TW, TH);
+            vx.restore();
+        };
+
+        vx.save();
+        vx.lineCap = 'round'; vx.lineJoin = 'round'; vx.setLineDash([]);
+
+        // ── rubbered-in racing line ──
+        // Four laps of a race weekend do not do this; four seasons of the
+        // circuit's own traffic do. It is a tint on the bake's asphalt rather
+        // than a stripe, and it is what makes a flat grey ribbon read as a
+        // surface that gets used.
+        vx.strokeStyle = 'rgba(16,16,20,0.15)'; vx.lineWidth = t.rw * 0.60;
+        drawPath(vx, wp); vx.stroke();
+        vx.strokeStyle = 'rgba(16,16,20,0.10)'; vx.lineWidth = t.rw * 0.32;
+        drawPath(vx, wp); vx.stroke();
+
+        // ── marbles ──
+        // The pellets of scrubbed rubber and dust that collect off the racing
+        // line, always on the OUTSIDE of a corner, which is where they get
+        // flung. Cheap, and they make the corner's direction readable from
+        // above before you are in it.
+        corners.forEach(([i0, i1]) => {
+            const dir = Math.sign(curv[((Math.round((i0 + i1) / 2) % n) + n) % n]) || 1;
+            for (let i = i0; i <= i1; i += 2) {
+                for (let k = 0; k < 2; k++) {
+                    const p = off(i, -dir * (half * 0.50 + rnd() * half * 0.44));
+                    vx.fillStyle = `rgba(${168 + (rnd() * 40 | 0)},${156 + (rnd() * 36 | 0)},130,${0.16 + rnd() * 0.20})`;
+                    vx.beginPath();
+                    vx.arc(p.x + (rnd() - 0.5) * 3, p.y + (rnd() - 0.5) * 3, 0.7 + rnd() * 1.1, 0, Math.PI * 2);
+                    vx.fill();
+                }
+            }
+        });
+        vx.restore();
+
+        // ── track limits: a continuous white line at the real edge ──
+        band(t.rw - 2, t.rw - 8, 0.45, (b, w) => {
+            b.strokeStyle = '#f4f6f8'; b.lineWidth = w; drawPath(b, wp); b.stroke();
+        });
+
+        // ── kerbs, on the corners only ──
+        // The bake lays a 16/16 red-white dash round the ENTIRE lap, which no
+        // circuit does and which is most of why the corners looked like they
+        // had been drawn with a marker. These are wider blocks over the same
+        // band, and the straights get the white line below instead.
+        band(t.rw + 18, t.rw + 1, 0.9, (b, w) => {
+            b.strokeStyle = '#c8202a'; b.lineWidth = w; drawPath(b, wp); b.stroke();
+            b.strokeStyle = '#f4f4f0'; b.setLineDash([15, 15]);
+            drawPath(b, wp); b.stroke();
+        }, corners);
+
+        // ── straights: solid white edge, replacing the bake's dashes ──
+        band(t.rw + 12, t.rw, 0.62, (b, w) => {
+            b.strokeStyle = '#eef1f4'; b.lineWidth = w; drawPath(b, wp); b.stroke();
+        }, straights);
+
+        // ── barrier ──
+        // The single most useful line on the whole track: past it, everything
+        // the model left lying around is unmistakably scenery. Drawn as steel
+        // with reflective posts, which is what a temporary street circuit uses.
+        band(t.rw + 30, t.rw + 23, 0.55, (b, w) => {
+            b.strokeStyle = '#3a3f4a'; b.lineWidth = w; drawPath(b, wp); b.stroke();
+            b.strokeStyle = 'rgba(232,238,246,0.65)'; b.setLineDash([3, 17]);
+            drawPath(b, wp); b.stroke();
+        });
+
+        // ── spectator banks ──
+        // Fractions of the lap plus which side they stand on: +1 the right of
+        // the racing direction, -1 the left, 0 = "outside of the corner",
+        // resolved from the local turn sign. All four sit on ground the bake
+        // shows as open — the IFEMA coach park down the main straight, the car
+        // parks at the first-corner braking zone, the scrub outside La
+        // Monumental — which is exactly where a temporary circuit puts them.
+        const BANKS = [[0.945, 1.030, -1], [0.035, 0.078, 0], [0.415, 0.505, 0], [0.745, 0.800, 0]];
+        const IN = half + 17, OUT = half + 41;
+        t.crowdSpecks = [];
+        BANKS.forEach(([f0, f1, s]) => {
+            const i0 = Math.round(f0 * n), i1 = Math.round(f1 * n);
+            let side = s;
+            if (!side) {
+                let c = 0;
+                for (let i = i0; i <= i1; i += 3) c += curv[((i % n) + n) % n];
+                side = -Math.sign(c) || 1;
+            }
+            // Deck. Its depth tapers over the last 16 waypoints at each end:
+            // a stand that stops dead in a straight line across the tarmac
+            // looks like a rectangle someone pasted on, and a raked end looks
+            // like scaffolding, which is what it is.
+            const taper = (i) => Math.min(1, Math.min(i - i0, i1 - i) / 16);
+            vx.save();
+            vx.beginPath();
+            for (let i = i0; i <= i1; i++) { const p = off(i, side * IN); if (i === i0) vx.moveTo(p.x, p.y); else vx.lineTo(p.x, p.y); }
+            for (let i = i1; i >= i0; i--) { const p = off(i, side * (IN + (OUT - IN) * taper(i))); vx.lineTo(p.x, p.y); }
+            vx.closePath();
+            vx.fillStyle = 'rgba(40,42,50,0.74)'; vx.fill();
+            vx.strokeStyle = 'rgba(18,19,24,0.6)'; vx.lineWidth = 1.5; vx.stroke();
+            // tiers, parallel to the road
+            vx.lineWidth = 1;
+            for (let k = 1; k < 5; k++) {
+                vx.strokeStyle = 'rgba(150,156,170,0.20)';
+                vx.beginPath();
+                let started = false;
+                for (let i = i0; i <= i1; i++) {
+                    if (taper(i) < k / 5) { started = false; continue; }
+                    const p = off(i, side * (IN + (OUT - IN) * k / 5));
+                    if (!started) { vx.moveTo(p.x, p.y); started = true; } else vx.lineTo(p.x, p.y);
+                }
+                vx.stroke();
+            }
+            // front railing, the bright line that separates crowd from track
+            vx.strokeStyle = 'rgba(226,232,242,0.55)'; vx.lineWidth = 1.6;
+            vx.beginPath();
+            for (let i = i0; i <= i1; i++) { const p = off(i, side * (IN - 1.5)); if (i === i0) vx.moveTo(p.x, p.y); else vx.lineTo(p.x, p.y); }
+            vx.stroke();
+            // The crowd itself. Dense and mostly desaturated: at 1 world px per
+            // screen px a head is one pixel, and a scatter of saturated dots at
+            // this size reads as confetti, not as people. Every other waypoint
+            // hands one head to the live layer to shimmer (see RaceScene).
+            for (let i = i0; i <= i1; i++) {
+                const tp = taper(i);
+                for (let k = 0; k < 9; k++) {
+                    if (rnd() > tp) continue;
+                    const p = off(i, side * (IN + 2 + rnd() * Math.max(0, (OUT - IN) * tp - 4)));
+                    p.x += (rnd() - 0.5) * 3.2; p.y += (rnd() - 0.5) * 3.2;
+                    const h = rnd();
+                    vx.fillStyle = h < 0.58 ? `rgba(${176 + (rnd() * 60 | 0)},${156 + (rnd() * 56 | 0)},${140 + (rnd() * 56 | 0)},0.72)`
+                        : h < 0.72 ? 'rgba(172,54,58,0.58)' : h < 0.83 ? 'rgba(198,176,84,0.58)'
+                        : h < 0.93 ? 'rgba(74,96,150,0.58)' : 'rgba(228,232,238,0.66)';
+                    vx.beginPath(); vx.arc(p.x, p.y, 0.55 + rnd() * 0.6, 0, Math.PI * 2); vx.fill();
+                    if (k === 0 && (i % 2) === 0) t.crowdSpecks.push({ x: p.x, y: p.y, ph: rnd() * 6.283 });
+                }
+            }
+            vx.restore();
+        });
+
+        // ── marshal posts ──
+        // One at the entry of each of the first eight corners, on the outside,
+        // just behind the barrier. The baked part is the platform; the live
+        // layer waves the flag.
+        t.marshalPosts = [];
+        corners.slice(0, 8).forEach(([i0, i1]) => {
+            const i = i0 + 4;
+            const dir = Math.sign(curv[((Math.round((i0 + i1) / 2) % n) + n) % n]) || 1;
+            const p = off(i, -dir * (half + 30));
+            const a = perpOf(i) - Math.PI / 2;
+            vx.save();
+            vx.fillStyle = 'rgba(228,232,238,0.85)';
+            vx.beginPath(); vx.arc(p.x, p.y, 3.6, 0, Math.PI * 2); vx.fill();
+            vx.strokeStyle = 'rgba(30,32,38,0.75)'; vx.lineWidth = 1; vx.stroke();
+            vx.fillStyle = 'rgba(232,142,32,0.95)';                 // the marshal
+            vx.beginPath(); vx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); vx.fill();
+            vx.restore();
+            t.marshalPosts.push({ x: p.x, y: p.y, a, ph: t.marshalPosts.length * 1.7 });
         });
     }
 
@@ -3204,6 +3580,11 @@ class BootScene extends Phaser.Scene {
                     vx.textAlign = 'left'; vx.fillText('LA MONUMENTAL', lp.x + 34, lp.y + 30);
                 }
 
+                // Circuit dressing on top of the bake: kerbs, track limits,
+                // barriers, rubber, and the spectator banks the live layer
+                // animates. See drawMadringDressing().
+                this.drawMadringDressing(vx, t, wp, TW, TH, cs);
+
             } else if (desk) {
                 drawDeskTrack(vx, t, wp, srand);
             } else {
@@ -4148,6 +4529,19 @@ class RaceScene extends Phaser.Scene {
                 lastRoadX: sp.x, lastRoadY: sp.y, lastRoadA: sp.a,
                 falling: false, _guardrailCd: 0, _fallGrace: 0, _fallMs: 0, _fallVx: 0, _fallVy: 0,
             };
+            // ── gloss ──
+            // A contact shadow beneath and a specular streak on top, both
+            // fixed to SUN_A in world space. Two extra quads per car; the
+            // shadow sits under every car (depth 8) and every glint above
+            // every car (13.6, still under the tunnel roofs at 15) so cars
+            // overlapping at a corner never punch holes in each other.
+            if (this.textures.exists('fx_carshadow')) {
+                t.shadow = this.add.image(sp.x, sp.y, 'fx_carshadow')
+                    .setDepth(8).setDisplaySize(TRUCK_W * 1.55, TRUCK_H * 1.3);
+                t.glint = this.add.image(sp.x, sp.y, 'fx_glint')
+                    .setDepth(13.6).setBlendMode(Phaser.BlendModes.ADD)
+                    .setDisplaySize(TRUCK_W * 0.62, TRUCK_H * 0.86);
+            }
             this.syncSprite(t);
             this.trucks.push(t);
         }
@@ -4249,6 +4643,9 @@ class RaceScene extends Phaser.Scene {
             });
         }
 
+        // MADRING: crowd, marshals, TV helicopter, start gantry
+        this.initTrackLife();
+
         // HUD
         this.buildHUD();
 
@@ -4281,17 +4678,177 @@ class RaceScene extends Phaser.Scene {
 
         this.time.delayedCall(1000, () => {
             this.cdTxt.setText('2'); SFX.countdownBeep(false);
+            this.drawStartLights(2);
             this.time.delayedCall(1000, () => {
                 this.cdTxt.setText('1'); SFX.countdownBeep(false);
+                this.drawStartLights(3);
                 this.time.delayedCall(1000, () => {
                     this.cdTxt.setText('GO!').setColor('#00ff00');
                     SFX.countdownBeep(true);
                     SFX.engineStart();
                     this.started = true;
+                    this.drawStartLights(0);       // lights out — go racing
+                    // …and then get the gantry off the road: a dark bar lying
+                    // across the racing line for four laps is scenery nobody
+                    // asked for.
+                    if (this.startLights) {
+                        this.tweens.add({ targets: this.startLights, alpha: 0, duration: 1200, delay: 400 });
+                    }
                     this.time.delayedCall(600, () => this.cdTxt.destroy());
                 });
             });
         });
+        this.drawStartLights(1);
+    }
+
+    // ── MADRING live layer ───────────────────────────────────────────────
+    // Everything that moves on this track and is not a car. Deliberately
+    // small: two Graphics objects and three sprites for the whole circuit, no
+    // per-frame allocation, and the crowd — much the biggest of it — is culled
+    // against the camera before a single rectangle is queued, because on a
+    // phone the camera sees about a fifteenth of a 1338x2033 world.
+    initTrackLife() {
+        // Cleared first, every time: Phaser reuses the RaceScene instance from
+        // race to race and destroys its display list, so a stale Graphics left
+        // over from the last MADRING race would be a dead object the next
+        // track's countdown happily called clear() on.
+        this.life = null;
+        this.startLights = null;
+        this.slAnchor = null;
+        if (this.td.theme !== 'madrid' || !this.td.crowdSpecks) return;
+
+        const wp = this.td.wp;
+        // Crowd: the baked bank already has ~2,700 heads painted into the track
+        // texture. These are the few hundred that catch the light — one head
+        // in twenty, oscillating out of phase — plus the phone cameras.
+        const specks = this.td.crowdSpecks.map(s => ({
+            x: s.x, y: s.y, ph: s.ph, sp: 0.9 + (s.ph % 1) * 2.2,
+        }));
+        const flashes = [];
+        for (let i = 0; i < 7; i++) flashes.push({ x: 0, y: 0, life: 0 });
+
+        // Marshal posts: the flag is a line that sweeps through about 100°,
+        // each post out of step with the others so they never wave in unison.
+        const marshals = (this.td.marshalPosts || []).map(m => ({ ...m }));
+
+        const gfx = this.add.graphics().setDepth(6);
+
+        // TV helicopter. It shadows the player rather than wandering the map:
+        // a helicopter you can never see is a helicopter that costs three
+        // sprites for nothing. It orbits a point that lags the leader, so it
+        // drifts in and out of shot the way a real one does.
+        const heli = {
+            cx: this.trucks[0].x, cy: this.trucks[0].y, ang: 0, r: 210,
+            shadow: this.add.image(0, 0, 'fx_carshadow').setDepth(7)
+                .setDisplaySize(30, 30).setAlpha(0.65),
+            body: this.add.image(0, 0, 'fx_heli').setDepth(30),
+            rotor: this.add.image(0, 0, 'fx_rotor').setDepth(31),
+        };
+
+        // Start gantry lights, across the road at the start line.
+        this.startLights = this.add.graphics().setDepth(16);
+        const s0 = wp[0], s1 = wp[1];
+        const sa = Math.atan2(s1.y - s0.y, s1.x - s0.x);
+        // 18 px PAST the line, not behind it: the grid sits behind wp[0] (see
+        // t.starts), so a gantry drawn on the near side lands on top of the
+        // cars it is supposed to be releasing.
+        this.slAnchor = {
+            x: s0.x + Math.cos(sa) * 18, y: s0.y + Math.sin(sa) * 18,
+            pa: sa + Math.PI / 2,
+        };
+
+        this.life = { gfx, specks, flashes, marshals, heli, t: 0 };
+    }
+
+    // `lit` counts how many of the five reds are on; 0 means lights out.
+    drawStartLights(lit) {
+        const g = this.startLights, a = this.slAnchor;
+        if (!g || !a) return;
+        g.clear();
+        const c = Math.cos(a.pa), s = Math.sin(a.pa);
+        const halfW = this.td.rw / 2 - 3;
+        g.lineStyle(2.5, 0x15181e, 0.85);
+        g.beginPath();
+        g.moveTo(a.x - c * halfW, a.y - s * halfW);
+        g.lineTo(a.x + c * halfW, a.y + s * halfW);
+        g.strokePath();
+        for (let i = 0; i < 5; i++) {
+            const f = (i - 2) / 2.4;
+            const x = a.x + c * halfW * f, y = a.y + s * halfW * f;
+            const on = i < lit;
+            g.fillStyle(on ? 0xff2418 : 0x1c1418, 1);
+            g.fillCircle(x, y, 2.4);
+            if (on) { g.fillStyle(0xff5a3c, 0.3); g.fillCircle(x, y, 5.4); }
+        }
+    }
+
+    updateTrackLife(delta) {
+        const L = this.life;
+        L.t += delta;
+        const tt = L.t / 1000;
+        const cam = this.cameras.main.worldView;
+        const x0 = cam.x - 8, y0 = cam.y - 8, x1 = cam.right + 8, y1 = cam.bottom + 8;
+        const g = L.gfx;
+        g.clear();
+
+        // crowd shimmer — one fillRect per visible head, nothing at all for
+        // the ~80% of them that are off camera
+        for (let i = 0; i < L.specks.length; i++) {
+            const p = L.specks[i];
+            if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+            const w = 0.5 + 0.5 * Math.sin(tt * p.sp + p.ph);
+            g.fillStyle(0xffffff, 0.12 + w * 0.5);
+            g.fillRect(p.x - 0.7, p.y - 0.7, 1.6, 1.6);
+        }
+
+        // phone cameras. One new flash roughly every 130 ms, only ever inside
+        // the camera, so they are always seen and never wasted.
+        for (let i = 0; i < L.flashes.length; i++) {
+            const f = L.flashes[i];
+            if (f.life > 0) {
+                f.life -= delta;
+                const k = Math.max(0, f.life / 150);
+                g.fillStyle(0xffffff, k);
+                g.fillCircle(f.x, f.y, 1 + k * 2.6);
+            } else if (Math.random() < 0.06) {
+                // pick a head that is actually on screen; give up if none is
+                for (let tries = 0; tries < 6; tries++) {
+                    const p = L.specks[(Math.random() * L.specks.length) | 0];
+                    if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+                    f.x = p.x; f.y = p.y; f.life = 150; break;
+                }
+            }
+        }
+
+        // marshals waving
+        for (let i = 0; i < L.marshals.length; i++) {
+            const m = L.marshals[i];
+            if (m.x < x0 || m.x > x1 || m.y < y0 || m.y > y1) continue;
+            const sw = Math.sin(tt * 4.2 + m.ph) * 0.9;
+            const a = m.a + Math.PI / 2 + sw;
+            const ex = m.x + Math.cos(a) * 9, ey = m.y + Math.sin(a) * 9;
+            g.lineStyle(1.4, 0x1a1c22, 0.7);
+            g.beginPath(); g.moveTo(m.x, m.y); g.lineTo(ex, ey); g.strokePath();
+            g.fillStyle(0xf5d020, 0.95);
+            g.fillCircle(ex, ey, 2.8);
+            g.fillStyle(0xfff0a0, 0.8);
+            g.fillCircle(ex, ey, 1.3);
+        }
+
+        // helicopter: orbit a point easing toward the leader
+        const h = L.heli, lead = this.trucks[0];
+        h.cx += (lead.x - h.cx) * 0.006;
+        h.cy += (lead.y - h.cy) * 0.006;
+        h.ang += delta * 0.00022;
+        const hx = h.cx + Math.cos(h.ang) * h.r;
+        const hy = h.cy + Math.sin(h.ang) * h.r * 0.72;
+        h.body.setPosition(hx, hy);
+        h.body.setRotation(h.ang + Math.PI / 2);
+        h.rotor.setPosition(hx, hy);
+        h.rotor.rotation += delta * 0.02;
+        // The shadow is thrown along SUN_A like everything else, but a long
+        // way out — that offset is the only cue that says the thing is flying.
+        h.shadow.setPosition(hx - Math.cos(SUN_A) * 26, hy - Math.sin(SUN_A) * 26);
     }
 
     buildHUD() {
@@ -4461,6 +5018,10 @@ class RaceScene extends Phaser.Scene {
     }
 
     update(time, delta) {
+        // Before the early-out: the crowd, the marshals and the helicopter
+        // carry on through the countdown and through the finish, which is
+        // most of the point of having them.
+        if (this.life) this.updateTrackLife(Math.min(delta, 50));
         if (!this.started || this.over) return;
         const dt = Math.min(delta / 16.67, 3); // cap dt to prevent tunnelling
         this.raceTime += delta;
@@ -4859,11 +5420,37 @@ class RaceScene extends Phaser.Scene {
         if (t.spr.texture && (t.spr.texture.key.startsWith('kenney_car_') || t.spr.texture.key.startsWith('car_'))) {
             // Kenney cars face up by default; gameplay heading angle 0 points right.
             t.spr.setRotation(t.a + Math.PI / 2);
-            return;
+        } else {
+            let deg = Phaser.Math.RadToDeg(t.a);
+            deg = ((deg % 360) + 360) % 360;
+            t.spr.setFrame(Math.round(deg / (360 / ROT_FRAMES)) % ROT_FRAMES);
         }
-        let deg = Phaser.Math.RadToDeg(t.a);
-        deg = ((deg % 360) + 360) % 360;
-        t.spr.setFrame(Math.round(deg / (360 / ROT_FRAMES)) % ROT_FRAMES);
+        if (t.shadow) this.syncCarShine(t);
+    }
+
+    // Both cues live at SUN_A in WORLD space and rotate with the car only in
+    // the sense that the streak lies along its bodywork — turn the car and the
+    // highlight walks around it, which is the whole trick: a top-down sprite
+    // with a highlight painted into it looks like a decal, and one with a
+    // highlight that stays put under a fixed sun looks like a lacquered object.
+    syncCarShine(t) {
+        // Hidden while the car is falling down a hole: the sprite is being
+        // tweened to nothing there and a full-size shadow left behind it would
+        // give the trick away.
+        const vis = t.spr.visible && !t.falling;
+        t.shadow.setVisible(vis);
+        t.glint.setVisible(vis);
+        if (!vis) return;
+        t.shadow.x = t.x + SHADOW_DX; t.shadow.y = t.y + SHADOW_DY;
+        t.shadow.rotation = t.a + Math.PI / 2;
+        // The streak sits on the sun-facing flank, a third of a body-width out,
+        // and is brightest when that flank is turned across the light — which
+        // is why it sweeps as you go through a corner rather than sitting there.
+        t.glint.x = t.x + Math.cos(SUN_A) * 4.2;
+        t.glint.y = t.y + Math.sin(SUN_A) * 4.2;
+        t.glint.rotation = t.a + Math.PI / 2;
+        const across = Math.abs(Math.sin(t.a - SUN_A));
+        t.glint.alpha = 0.13 + 0.21 * across + (t.nAct ? 0.20 : 0);
     }
 
     checkCks(t) {
