@@ -43,6 +43,28 @@ const FOV_FIRST_PERSON = 68
 /** Easing rate for the field of view, 1/s. */
 const FOV_EASE = 4
 
+/**
+ * How far the chase camera tilts down, radians (~6°).
+ *
+ * Height alone does not buy a view of the circuit. A camera raised straight up
+ * with a level axis keeps the horizon pinned to the middle of the frame and
+ * spends the extra elevation on foreground tarmac, so the band of road between
+ * the car's airbox and the vanishing point — the only part a driver actually
+ * reads a corner from — stays as thin as it was. Tilting down moves the
+ * horizon up the frame and drops the car towards the lower third, which is
+ * what opens that band: at the resting pose below it goes from roughly 40 px
+ * to roughly 120 px on a 720p frame. Measured against screenshots at 0.115 and
+ * 0.095 as well — the first floats the car small and distant, the second gives
+ * most of the view back but not quite all of it.
+ *
+ * Applied to the chase camera only. First person is the driver's own eyeline
+ * and must stay level, or the halo swallows the apex.
+ *
+ * Positive is down: the rotation is written in the camera's default XYZ Euler
+ * order with y = PI, so R·(0,0,-1) works out to (0, -sin x, cos x).
+ */
+const CHASE_PITCH = 0.105
+
 /** Half-spacing of the road probes that pitch/roll the car with the surface. */
 const PROBE_LONG = 1.8
 const PROBE_LAT = 0.8
@@ -201,9 +223,19 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         // the driver's eye, just above the halo
         v.set((Math.sin(-steeringValue) * speed) / 40, 0.98, -0.35)
       } else {
-        // sideways lead into the corner, a little squat under power, and the
-        // camera drawing *in* with speed rather than falling away from it
-        v.set((Math.sin(steeringValue) * speed) / 3.2, 1.15 - player.throttle * 0.12 + speedFactor * 0.35, -5.2 - speed / 28 + (controls.backward ? 0.9 : 0))
+        // Sideways lead into the corner, a little squat under power, and the
+        // camera drawing *in* with speed rather than falling away from it.
+        //
+        // The 1.15 m / 5.2 m the height and distance used to be put the lens
+        // level with the rear wing and close enough that the car's own bodywork
+        // covered the road from its airbox up to the vanishing point — on a
+        // phone, where the frame is only ~400 px tall, that left the circuit
+        // essentially unreadable and was the owner's headline complaint. 2.45 m
+        // and 7.1 m, with CHASE_PITCH above tilting the lens down, look over the
+        // car rather than through it. The speed terms are unchanged: they are
+        // feel, not framing, and they still lift and stretch the shot on top of
+        // the new baseline.
+        v.set((Math.sin(steeringValue) * speed) / 3.2, 2.45 - player.throttle * 0.12 + speedFactor * 0.35, -7.1 - speed / 28 + (controls.backward ? 0.9 : 0))
       }
 
       const cam = cameraRig.persp
@@ -223,12 +255,18 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         // Sway + speed shake + wall-impact kick — written as a FULL rotation
         // set, y = PI included. Writing only x/z is how the camera stayed
         // facing backwards after the bird's-eye branch stomped y to 0.
+        //
+        // The chase tilt is the *base* of the x axis rather than a separate
+        // write for the same reason: one `rotation.set` per frame, carrying
+        // every axis, is the only shape that cannot leave a stale component
+        // behind when the mode changes under it.
         swaySpeed = isBoosting ? 60 : 30
         swayTarget = (isBoosting ? speedFactor * 8 : speedFactor * 3) + t.shake * speedFactor * speedFactor * 4
         S.swayValue = isBoosting ? (speedFactor + 0.25) * 30 : MathUtils.lerp(S.swayValue, swayTarget, delta * 20)
         const kick = player.impactKick * 40
+        const pitch = camera === 'FIRST_PERSON' ? 0 : CHASE_PITCH
         cam.rotation.set(
-          (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * (S.swayValue + kick),
+          pitch + (Math.sin(state.clock.elapsedTime * swaySpeed) / 1000) * (S.swayValue + kick),
           Math.PI,
           S.swivel + (Math.sin(state.clock.elapsedTime * swaySpeed * 0.9) / 1000) * (S.swayValue + kick),
         )
