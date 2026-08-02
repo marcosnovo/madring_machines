@@ -22,6 +22,18 @@
  * back to FIT's letterboxing, which is survivable; starting in the wrong
  * shape is not.
  *
+ * The aspect ratio is measured off #game-container itself, NOT off
+ * window.innerWidth/innerHeight. That element is the box Phaser's FIT will
+ * scale into, and on iOS it is not the same shape as the window: index.html
+ * sizes it in `dvh` (because `vh` on iOS means the chrome-RETRACTED viewport,
+ * so `100vh` is taller than the screen actually shows and FIT centred the
+ * canvas inside a box hanging off the bottom of the display — the black bars
+ * in the bug report) and then subtracts the safe-area insets (because
+ * viewport-fit=cover hands us the notch and the home indicator, which are not
+ * places to draw a HUD). Measuring the element closes the loop: whatever CSS
+ * decides the playfield is, that is the shape the design box gets, and FIT is
+ * left with nothing to letterbox.
+ *
  * Desktop is untouched — same 1024x768 it has always had.
  */
 let GW = 1024;
@@ -29,7 +41,12 @@ let GH = 768;
 
 (function pickDesignSize() {
     if (typeof window === 'undefined') return;
-    const vw = window.innerWidth, vh = window.innerHeight;
+    const el = document.getElementById('game-container');
+    const r = el && el.getBoundingClientRect();
+    // innerWidth/innerHeight is the fallback for anything that loads this file
+    // without the page around it (the screenshot tooling does).
+    const vw = (r && r.width) || window.innerWidth;
+    const vh = (r && r.height) || window.innerHeight;
     // `isTouchDevice` is a hoisted function declaration further down.
     if (!isTouchDevice() || vh <= vw) return;
     // Width first, height from the real aspect, so a tall phone gets a tall
@@ -50,6 +67,24 @@ const WP_DIST = 25;                 // AI waypoint advance distance
 const PICKUP_R = 15;                // pickup collection radius
 const TRUCK_W = 26;
 const TRUCK_H = 38;
+
+/**
+ * How big a car is DRAWN, as distinct from how big it is for physics.
+ *
+ * TRUCK_W/TRUCK_H stay the physics footprint — the four corners the
+ * fall-off-track test samples, and the half-width the collision code uses —
+ * because moving those changes how the game plays. These two are the display
+ * size only, 20% larger, which is as far as it can go before cars visibly
+ * overlap at the point they stop touching (collisions separate at 2*TS = 24 px
+ * between centres, so 31 px of drawn width still leaves them apart nose-to-tail
+ * and only just kisses side-by-side).
+ *
+ * 20% is deliberately modest: on a 390 pt iPhone the 720-wide portrait design
+ * box lands at ~0.54 CSS px per design px, so this is 14 -> 17 CSS px of car.
+ * Scale alone was never going to fix legibility at that size — see fx_carring.
+ */
+const CAR_DRAW_W = Math.round(TRUCK_W * 1.2);   // 31
+const CAR_DRAW_H = Math.round(TRUCK_H * 1.2);   // 46
 
 /**
  * Where the light comes from, in world radians, for the two 2D lighting cues
@@ -81,6 +116,15 @@ const C = {
 // a fallback. No third-party character art anywhere.
 const NAMES = ['OSO', 'GATA', 'CIBELES', 'MADROÑO'];
 const CHAR_COLORS = [0xd8892c, 0x4f8fe0, 0x46c2a8, 0xd8452f];
+// The same four identities, pushed to the edge of the gamut, for the ID ring
+// each car wears on track (fx_carring). CHAR_COLORS are portrait colours: they
+// were picked to sit on the dark menu panels and they are all around 55-60%
+// value, which is exactly the value range of the MADRING's aerial photograph —
+// tarmac, rooftops, gravel. A hue only survives that background if it is both
+// brighter and more saturated than anything in the photo, which no real
+// aerial ever is. Same hue as the portrait, so the driver still reads as "the
+// orange one"; ~35% more luminance and near-full saturation so it survives.
+const RING_COLORS = [0xff9a1f, 0x3fa9ff, 0x25f0c0, 0xff3b2e];
 const TCOLORS = [C.player, C.ai1, C.ai2, C.ai3];
 const PLAYER_IMGS = ['avatar_oso', 'avatar_gata', 'avatar_cibeles', 'avatar_madrono'];
 const CAR_SPRITES = ['car_oso', 'car_gata', 'car_cibeles', 'car_madrono'];
@@ -1446,9 +1490,9 @@ class BootScene extends Phaser.Scene {
         // SAME 26:38 aspect ratio the sprite is displayed at, so the car is no
         // longer stretched 26% wider than it was drawn.
         //
-        // Every decision here is about reading at 26×38 px on the MADRING's
-        // baked aerial, which is far darker and busier than the flat green the
-        // old sprite was drawn against:
+        // Every decision here is about reading at CAR_DRAW_W × CAR_DRAW_H
+        // (31×46) on the MADRING's baked aerial, which is far darker and
+        // busier than the flat green the old sprite was drawn against:
         //   · a soft black halo under the whole car, so it never sits flush
         //     against a dark background. It is radially symmetric on purpose —
         //     the sprite rotates with the car, and a directional drop shadow
@@ -1893,6 +1937,66 @@ class BootScene extends Phaser.Scene {
         ctx.fillStyle = '#2b303a';                            // rotor head
         ctx.beginPath(); ctx.arc(32, 32, 3, 0, Math.PI * 2); ctx.fill();
         this.textures.addCanvas('fx_rotor', cv);
+
+        // ── ID ring: the thing that actually makes a car findable ──────────
+        //
+        // The problem, measured: a car is drawn 31 x 46 design px, and on a
+        // 390 pt iPhone the 720-wide portrait design box scales by ~0.54, so
+        // the car is ~17 x 25 CSS px. At that size the silhouette carries
+        // almost nothing — the baked formula car is mostly light grey bodywork
+        // and black tyres, i.e. the same values as the asphalt it is standing
+        // on — and four cars in four muted hues are four grey smudges.
+        //
+        // Two things survive at 17 px over a photograph: a hard black/white
+        // value step at the silhouette, and a hue more saturated than anything
+        // a camera ever recorded. This ring is both, in one quad per car:
+        //
+        //   dark casing  ── outermost, so there is a black edge no matter how
+        //                   pale the ground is (the coach park is bone white)
+        //   bright band  ── drawn white so setTint() paints it in the driver's
+        //                   RING_COLOR; this is the identity cue
+        //   dark liner   ── the same casing showing through on the inside, so
+        //                   the band never bleeds into the car's own paint
+        //
+        // Elliptical, at the same 0.8 aspect the ring is displayed at, so the
+        // sprite scales UNIFORMLY and the band keeps an even thickness all the
+        // way round — a circular ring squashed to 40 x 50 would be visibly
+        // thinner down the flanks, which is where the eye reads it.
+        //
+        // It sits UNDER the car (depth 9) and is drawn a touch bigger than it,
+        // so only the outer half of the band is ever visible: about 3.7 design
+        // px, ~2 CSS px on the phone. That is the minimum that survives the
+        // downscale — 1 px of ring is what the old white 2 px stroke on the
+        // touch buttons proved does not.
+        cv = document.createElement('canvas'); cv.width = 64; cv.height = 80;
+        ctx = cv.getContext('2d');
+        const ringPath = () => {
+            ctx.beginPath(); ctx.ellipse(32, 40, 27, 34, 0, 0, Math.PI * 2);
+        };
+        ringPath(); ctx.strokeStyle = 'rgba(6,8,12,0.92)'; ctx.lineWidth = 13; ctx.stroke();
+        ringPath(); ctx.strokeStyle = 'rgba(255,255,255,1)'; ctx.lineWidth = 6.5; ctx.stroke();
+        this.textures.addCanvas('fx_carring', cv);
+
+        // ── "that one is you" chevron ──────────────────────────────────────
+        // A ring alone cannot answer "which of these four is mine" when the
+        // pack is three-wide into a corner and every car is wearing one. This
+        // floats above the player's car in SCREEN space — it never rotates
+        // with the car, so it is the one mark on the field whose orientation
+        // is constant and which the eye can therefore find without reading it.
+        // White with a black keyline for the same reason as the ring; tinted
+        // to the player's own RING_COLOR so it still says which driver you are.
+        cv = document.createElement('canvas'); cv.width = 32; cv.height = 28;
+        ctx = cv.getContext('2d');
+        const chev = (inset) => {
+            ctx.beginPath();
+            ctx.moveTo(4 + inset, 4 + inset * 0.6);
+            ctx.lineTo(28 - inset, 4 + inset * 0.6);
+            ctx.lineTo(16, 24 - inset);
+            ctx.closePath();
+        };
+        chev(0); ctx.fillStyle = 'rgba(6,8,12,0.95)'; ctx.fill();
+        chev(3.4); ctx.fillStyle = '#ffffff'; ctx.fill();
+        this.textures.addCanvas('fx_pmark', cv);
     }
 
     // ── Shared track rendering helpers (visual canvas) ────────────────────
@@ -4494,9 +4598,10 @@ class RaceScene extends Phaser.Scene {
                 spr: this.add.sprite(sp.x, sp.y, spriteKey)
                     .setOrigin(0.5)
                     .setDepth(10 + i)
-                    .setDisplaySize(TRUCK_W, TRUCK_H),
+                    .setDisplaySize(CAR_DRAW_W, CAR_DRAW_H),
                 x: sp.x, y: sp.y, a: sp.a, vx: 0, vy: 0,
-                isP, name: NAMES[ci], col: CHAR_COLORS[ci], imgKey: PLAYER_IMGS[ci], idx: i,
+                isP, name: NAMES[ci], col: CHAR_COLORS[ci], ringCol: RING_COLORS[ci],
+                imgKey: PLAYER_IMGS[ci], idx: i,
                 // Handling model (2026 grip pass — player and AI share it):
                 //   acc   px/frame² of throttle. 0.085 reaches 95% of top
                 //         speed in 0.68 s where the old 0.06 took 0.95 s.
@@ -4537,10 +4642,35 @@ class RaceScene extends Phaser.Scene {
             // overlapping at a corner never punch holes in each other.
             if (this.textures.exists('fx_carshadow')) {
                 t.shadow = this.add.image(sp.x, sp.y, 'fx_carshadow')
-                    .setDepth(8).setDisplaySize(TRUCK_W * 1.55, TRUCK_H * 1.3);
+                    .setDepth(8).setDisplaySize(CAR_DRAW_W * 1.55, CAR_DRAW_H * 1.3);
                 t.glint = this.add.image(sp.x, sp.y, 'fx_glint')
                     .setDepth(13.6).setBlendMode(Phaser.BlendModes.ADD)
-                    .setDisplaySize(TRUCK_W * 0.62, TRUCK_H * 0.86);
+                    .setDisplaySize(CAR_DRAW_W * 0.62, CAR_DRAW_H * 0.86);
+            }
+
+            // ── ID ring + player chevron (see fx_carring in genFxSprites) ──
+            // Depth 9: above the contact shadow, below every car, so a car
+            // that laps another never has that car's ring painted over its
+            // own bodywork. 40 x 50 against a 31 x 46 car — the band straddles
+            // the silhouette, which is where a value step has to be to work.
+            //
+            // The player's is white rather than their own hue, and a size up.
+            // Four saturated hues on a photograph are four equally loud
+            // things; white is the one value nothing else on the field or in
+            // the aerial has, so "mine is the white-ringed one" needs no
+            // colour memory at all. The chevron above it carries the driver
+            // hue instead, so the identity is not lost.
+            if (this.textures.exists('fx_carring')) {
+                t.ring = this.add.image(sp.x, sp.y, 'fx_carring').setDepth(9);
+                if (isP) {
+                    t.ring.setTint(0xffffff).setAlpha(0.95)
+                        .setDisplaySize(CAR_DRAW_W * 1.42, CAR_DRAW_H * 1.20);
+                    t.pmark = this.add.image(sp.x, sp.y, 'fx_pmark')
+                        .setTint(t.ringCol).setDepth(14).setDisplaySize(17, 15);
+                } else {
+                    t.ring.setTint(t.ringCol).setAlpha(0.85)
+                        .setDisplaySize(CAR_DRAW_W * 1.29, CAR_DRAW_H * 1.09);
+                }
             }
             this.syncSprite(t);
             this.trucks.push(t);
@@ -4737,8 +4867,15 @@ class RaceScene extends Phaser.Scene {
         // a helicopter you can never see is a helicopter that costs three
         // sprites for nothing. It orbits a point that lags the leader, so it
         // drifts in and out of shot the way a real one does.
+        //
+        // `hd` is the heading the body is drawn at, and it is deliberately a
+        // piece of state rather than something derived from `ang` — see
+        // updateTrackLife for why the two are not the same thing. Seeded with
+        // the tangent at ang = 0, which for an ellipse walked anticlockwise is
+        // straight down the screen (+y), so the first frame is already right.
         const heli = {
             cx: this.trucks[0].x, cy: this.trucks[0].y, ang: 0, r: 210,
+            px: this.trucks[0].x + 210, py: this.trucks[0].y, hd: Math.PI / 2,
             shadow: this.add.image(0, 0, 'fx_carshadow').setDepth(7)
                 .setDisplaySize(30, 30).setAlpha(0.65),
             body: this.add.image(0, 0, 'fx_heli').setDepth(30),
@@ -4837,13 +4974,49 @@ class RaceScene extends Phaser.Scene {
 
         // helicopter: orbit a point easing toward the leader
         const h = L.heli, lead = this.trucks[0];
-        h.cx += (lead.x - h.cx) * 0.006;
-        h.cy += (lead.y - h.cy) * 0.006;
+        // Frame-rate independent chase. This used to be a flat
+        // `h.cx += (lead.x - h.cx) * 0.006` per FRAME, i.e. 0.36 of the
+        // remaining gap per second at 60 Hz — but twice that on the 120 Hz
+        // ProMotion iPhone this was reported from, which is a large part of
+        // why the helicopter misbehaved there and not on a desktop.
+        // 0.00036/ms reproduces the old 60 Hz feel exactly (0.006 / 16.67).
+        const k = 1 - Math.exp(-delta * 0.00036);
+        h.cx += (lead.x - h.cx) * k;
+        h.cy += (lead.y - h.cy) * k;
         h.ang += delta * 0.00022;
         const hx = h.cx + Math.cos(h.ang) * h.r;
         const hy = h.cy + Math.sin(h.ang) * h.r * 0.72;
         h.body.setPosition(hx, hy);
-        h.body.setRotation(h.ang + Math.PI / 2);
+
+        // Point the nose where it is ACTUALLY going, which is not `h.ang`.
+        //
+        // This was `setRotation(h.ang + PI/2)` — the orbit *parameter* angle —
+        // and that is only the direction of travel if the orbit centre is
+        // standing still and the orbit is a circle. Neither holds. The orbit
+        // is squashed to 0.72 in y, which alone swings the true tangent up to
+        // ~16° away from `ang`; and the centre is chasing the leader, which is
+        // the real problem. Measured: the orbit contributes at most
+        // r * dang/dt = 210 * 0.22 rad/s ≈ 46 px/s of travel, while the chase
+        // contributes 0.36 of the gap per second — over 100 px/s any time the
+        // leader is more than ~300 px from the orbit centre, which is most of
+        // a 1338x2033 circuit. So for half of every orbit the helicopter's
+        // real velocity was dominated by a chase vector pointing the opposite
+        // way to `ang`, and it flew tail-first. Deriving the heading from the
+        // actual frame-to-frame displacement makes both terms count.
+        //
+        // Smoothed at 12%/frame-ish rather than snapped, so the nose swings
+        // round like an aircraft instead of flicking, and gated on a minimum
+        // displacement so a near-stationary helicopter (leader parked, orbit
+        // and chase momentarily cancelling) holds its last heading instead of
+        // spinning on numerical noise.
+        const vx = hx - h.px, vy = hy - h.py;
+        if (vx * vx + vy * vy > 0.0025) {
+            const want = Math.atan2(vy, vx);
+            h.hd += Phaser.Math.Angle.Wrap(want - h.hd) * Math.min(1, delta * 0.0072);
+        }
+        h.px = hx; h.py = hy;
+        // +90° for the same reason the cars get it: fx_heli is drawn nose-up.
+        h.body.setRotation(h.hd + Math.PI / 2);
         h.rotor.setPosition(hx, hy);
         h.rotor.rotation += delta * 0.02;
         // The shadow is thrown along SUN_A like everything else, but a long
@@ -4945,36 +5118,73 @@ class RaceScene extends Phaser.Scene {
         // map is still bottom-right, and its height depends on the track's
         // aspect ratio, so the cluster has to be lifted clear of its top edge
         // rather than assuming a fixed size.
+        //
+        // BOTTOM_GAP was 112 design px in portrait, which on an iPhone (720
+        // design px mapped onto a 390 pt screen, ~0.54 CSS px per design px)
+        // put the middle of the buttons 61 CSS px off the bottom of the
+        // canvas — and the bottom of the canvas is itself hard against
+        // Safari's toolbar and the home indicator. Both thumbs ended up curled
+        // right at the edge of the glass, and half of every press landed on
+        // browser furniture. 176 design px is ~95 CSS px, which clears the
+        // 34 pt home indicator with room for the thumb, and still sits well
+        // inside the bottom third of the screen where a held thumb rests.
+        const BOTTOM_GAP = IS_PORTRAIT ? 176 : 104;
         const clusterR = IS_PORTRAIT ? 62 : 82;
-        let rightY = GH - (IS_PORTRAIT ? 112 : 90);
+        let rightY = GH - BOTTOM_GAP;
         if (!IS_PORTRAIT && this.isBig && this.miniY != null) {
             rightY = Math.min(rightY, this.miniY - clusterR - 16);
         }
 
+        // A zone is three objects, not one. The old single circle was a 30%
+        // fill with a 2 px white stroke, which is fine over a dark menu and
+        // invisible over the MADRING: the aerial has bone-white coach parks
+        // (a white stroke vanishes), mid-grey tarmac (a 30% blue fill vanishes)
+        // and near-black shadow (the whole thing vanishes). Nothing that is
+        // ONE value can be seen over a photograph containing every value, so:
+        //
+        //   casing  a near-black disc 7 px proud of the button, alpha 0.62.
+        //           This is the only part that is guaranteed to contrast,
+        //           because the aerial has no true blacks in it.
+        //   circle  the coloured face, 0.46 rather than 0.30 — still see-through
+        //           enough to drive over, twice as present as it was.
+        //   stroke  4 px of near-opaque white, sitting on top of the casing, so
+        //           the button edge is a white-on-black step whatever is under
+        //           it. 2 px was ~1 CSS px after the downscale, i.e. gone.
         const zone = (cx, cy, r, color, label, onDown, onUp, fontSize) => {
-            const circle = this.add.circle(cx, cy, r, color, 0.30)
-                .setStrokeStyle(2, 0xffffff, 0.4)
+            const casing = this.add.circle(cx, cy, r + 7, 0x05070c, 0.62)
+                .setDepth(199).setScrollFactor(0);
+            const circle = this.add.circle(cx, cy, r, color, 0.46)
+                .setStrokeStyle(4, 0xffffff, 0.92)
                 .setDepth(200).setScrollFactor(0)
                 .setInteractive({ useHandCursor: false });
             const txt = this.add.text(cx, cy, label, {
-                fontSize: fontSize || '13px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fff',
-            }).setOrigin(0.5).setDepth(201).setScrollFactor(0).setAlpha(0.6);
-            const press = () => { circle.setFillStyle(color, 0.65).setScale(1.08); txt.setAlpha(0.95); onDown(); };
-            const release = () => { circle.setFillStyle(color, 0.30).setScale(1.0); txt.setAlpha(0.6); onUp(); };
+                fontSize: fontSize || '15px', fontFamily: 'monospace', fontStyle: 'bold',
+                color: '#fff', stroke: '#05070c', strokeThickness: 4,
+            }).setOrigin(0.5).setDepth(201).setScrollFactor(0).setAlpha(0.92);
+            const press = () => {
+                circle.setFillStyle(color, 0.9).setScale(1.08);
+                casing.setFillStyle(0x05070c, 0.8).setScale(1.08);
+                txt.setAlpha(1); onDown();
+            };
+            const release = () => {
+                circle.setFillStyle(color, 0.46).setScale(1.0);
+                casing.setFillStyle(0x05070c, 0.62).setScale(1.0);
+                txt.setAlpha(0.92); onUp();
+            };
             circle.on('pointerdown', press);
             circle.on('pointerup', release);
             circle.on('pointerout', release);
             circle.on('pointerupoutside', release);
-            this.touchZones.push(circle, txt);
+            this.touchZones.push(casing, circle, txt);
         };
 
         // Steering — bottom-left, under the left thumb. Plain ASCII "<"/">"
         // rather than Unicode arrow glyphs, which some mobile browsers'
         // monospace fallback renders as blank tofu boxes.
         const steerR = IS_PORTRAIT ? 58 : 64;
-        const steerY = GH - (IS_PORTRAIT ? 112 : 90);
-        const steerX = IS_PORTRAIT ? 78 : 100;
-        const steerGap = IS_PORTRAIT ? 132 : 144;
+        const steerY = GH - BOTTOM_GAP;
+        const steerX = IS_PORTRAIT ? 82 : 100;
+        const steerGap = IS_PORTRAIT ? 140 : 144;
         zone(steerX, steerY, steerR, 0x2a6dff, '<',
             () => { this.cur.left.isDown = true; },
             () => { this.cur.left.isDown = false; }, IS_PORTRAIT ? '32px' : '36px');
@@ -4992,8 +5202,10 @@ class RaceScene extends Phaser.Scene {
             () => { this.cur.up.isDown = true; },
             () => { this.cur.up.isDown = false; });
 
-        // brake / reverse — smaller, to the left of accelerate
-        zone(GW - (IS_PORTRAIT ? 192 : 260), rightY, IS_PORTRAIT ? 44 : 50, 0xff4444, 'BRK',
+        // brake / reverse — smaller, to the left of accelerate. 200 rather
+        // than 192 in portrait: the casing rings are 7 px proud of the buttons
+        // now, and at 192 the brake's ring and the throttle's ring touched.
+        zone(GW - (IS_PORTRAIT ? 200 : 260), rightY, IS_PORTRAIT ? 44 : 50, 0xff4444, 'BRK',
             () => { this.cur.down.isDown = true; },
             () => { this.cur.down.isDown = false; });
 
@@ -5002,9 +5214,9 @@ class RaceScene extends Phaser.Scene {
         // no width left for a third column beside the steering pair, but
         // plenty of height, and stacking keeps it under the same thumb.
         if (IS_PORTRAIT) {
-            zone(GW - 74, rightY - clusterR - 52, 44, 0xff6600, 'NITRO',
+            zone(GW - 74, rightY - clusterR - 58, 44, 0xff6600, 'NITRO',
                 () => { this.spc.isDown = true; this.spc._justDown = true; },
-                () => { this.spc.isDown = false; }, '11px');
+                () => { this.spc.isDown = false; }, '13px');
         } else {
             zone(GW - 384, rightY, 52, 0xff6600, 'NITRO',
                 () => { this.spc.isDown = true; this.spc._justDown = true; },
@@ -5426,6 +5638,34 @@ class RaceScene extends Phaser.Scene {
             t.spr.setFrame(Math.round(deg / (360 / ROT_FRAMES)) % ROT_FRAMES);
         }
         if (t.shadow) this.syncCarShine(t);
+        if (t.ring) this.syncCarMarks(t);
+    }
+
+    // ID ring and player chevron. Kept out of syncCarShine because the two
+    // are created independently: the gloss needs fx_carshadow, these need
+    // fx_carring, and a car with one and not the other must still work.
+    syncCarMarks(t) {
+        // Same rule as the gloss: a car falling down a hole is being tweened
+        // away to a dot, and a full-size ring left sitting where it used to be
+        // reads as a bug rather than as a fall.
+        const vis = t.spr.visible && !t.falling;
+        t.ring.setVisible(vis);
+        if (t.pmark) t.pmark.setVisible(vis);
+        if (!vis) return;
+        t.ring.x = t.x; t.ring.y = t.y;
+        // Rotates with the car: the ring is elliptical and hugs the silhouette,
+        // so a ring that stayed axis-aligned would cut across the bodywork on
+        // every corner instead of tracing it.
+        t.ring.rotation = t.a + Math.PI / 2;
+        if (!t.pmark) return;
+        // Screen-space, never rotated, and bobbing on a 1.1 s cycle: motion is
+        // what the eye picks up first in peripheral vision, and 3 px of travel
+        // is enough to be seen without being enough to be annoying over four
+        // laps. Parked 30 px above the car — clear of a 46 px-tall car's nose
+        // whichever way it is pointing, and clear of the car ahead's ring.
+        const bob = Math.sin(this.time.now * 0.0057) * 1.6;
+        t.pmark.x = t.x;
+        t.pmark.y = t.y - 30 + bob;
     }
 
     // Both cues live at SUN_A in WORLD space and rotate with the car only in
@@ -5592,7 +5832,7 @@ class RaceScene extends Phaser.Scene {
 
         // Kill any scale tweens (e.g. ramp animation) and reset to clean size
         this.tweens.killTweensOf(t.spr);
-        t.spr.setDisplaySize(TRUCK_W, TRUCK_H);
+        t.spr.setDisplaySize(CAR_DRAW_W, CAR_DRAW_H);
         const normSx = t.spr.scaleX, normSy = t.spr.scaleY;
 
         if (t.isP) {
@@ -5632,7 +5872,7 @@ class RaceScene extends Phaser.Scene {
                     duration: 420,
                     ease: 'Back.easeOut',
                     onComplete: () => {
-                        t.spr.setDisplaySize(TRUCK_W, TRUCK_H); // snap to exact size
+                        t.spr.setDisplaySize(CAR_DRAW_W, CAR_DRAW_H); // snap to exact size
                         t.falling = false;
                         t._fallGrace = 55; // brief immunity to prevent immediate re-fall
                     },
