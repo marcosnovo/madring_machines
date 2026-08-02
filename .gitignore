@@ -3,3 +3,7 @@ node_modules/
 Archive.zip
 _site/
 madring-3d/dist/
+
+# Byte-compiled Python from syntax-checking the Blender scripts
+__pycache__/
+*.pyc
