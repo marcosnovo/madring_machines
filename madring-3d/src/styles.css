@@ -7,6 +7,15 @@ body,
 #root {
   width: 100vw;
   height: 100vh;
+  /* `dvh` is the *visible* viewport; `vh` on a phone browser is the viewport
+     as it would be with the address bar and toolbar collapsed. The difference
+     is real estate the page is laid out into but the player cannot see, and
+     everything anchored to the bottom edge — speedometer, pedals, the
+     fullscreen control — lands inside it. Kept as a second declaration so
+     browsers without `dvh` still get the `vh` line above, and a no-op
+     everywhere the two agree (desktop, and any home-screen app, where there
+     is no browser chrome to collapse). */
+  height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -241,7 +250,10 @@ body {
 .help {
   position: absolute;
   top: 60px;
-  right: 60px;
+  /* 60px used to clear anything worth clearing; a landscape iPhone's side
+     inset is 59px, so on the notch side this button was one pixel from being
+     unreachable. */
+  right: calc(60px + env(safe-area-inset-right, 0px));
 }
 
 .popup {
@@ -544,8 +556,10 @@ button {
 .attribution {
   z-index: 1;
   position: absolute;
-  left: 40px;
-  right: 40px;
+  /* A licence condition that is clipped by a notch is not attribution, so the
+     side insets apply here too, not only the bottom one below. */
+  left: calc(40px + env(safe-area-inset-left, 0px));
+  right: calc(40px + env(safe-area-inset-right, 0px));
   /* Clear of the fullscreen toggle, which sits above this overlay at
      bottom-centre (12px + 44px + safe area) and would otherwise print a disc
      over the middle of the credit. The credit is a licence condition, so it
@@ -679,9 +693,27 @@ button {
    browser never renders any of this. Same dark/rounded HUD language as the
    race board above: rgba(8, 10, 16, 0.82), 12px radius, white text. */
 
+/*
+ * Inset to the safe area rather than to the viewport, now that index.html asks
+ * for `viewport-fit=cover` and the canvas really does run under the notch and
+ * the home indicator. Every control below is absolutely positioned, and this
+ * element is positioned, so this box *is* their containing block: one rule
+ * here moves the whole cluster inboard on a notched phone and every
+ * `left: 16px` / `right: 16px` below keeps meaning "16px from the edge you can
+ * actually touch". Doing it per-button would be a dozen calc() expressions
+ * that have to agree with each other forever.
+ *
+ * In landscape — the only orientation this game allows, see RotateGate — the
+ * insets that bite are left/right (the notch is on one of them, and the
+ * rounded corners on both) and bottom (the home-indicator gesture bar, which
+ * swallows a swipe meant for the steer pad).
+ */
 .touch-controls {
   position: absolute;
-  inset: 0;
+  top: env(safe-area-inset-top, 0px);
+  right: env(safe-area-inset-right, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: env(safe-area-inset-left, 0px);
   z-index: 5;
   /* The container itself passes touches through; only the zones below opt in,
      so nothing here can block the "i"/"L"/tuning buttons drawn elsewhere. */
@@ -883,18 +915,27 @@ button {
  * TouchControls renders on (same isTouchCapable() check), so this never
  * touches desktop/mouse play.
  */
+/*
+ * These three are siblings of the canvas, not children of `.touch-controls`,
+ * so they do not inherit its safe-area box and have to carry the insets
+ * themselves. Without them a landscape iPhone puts the lap clock under the
+ * notch and the position board and speedometer under the rounded corner —
+ * the exact numbers a driver glances at, in the two places a phone hides.
+ * Only one of left/right is ever non-zero (the notch is on one side), so
+ * naming both costs nothing and survives the phone being turned round.
+ */
 .touch-device .clock {
   /* Shares the top-left corner with .touch-camera (left:10px;top:10px;
      width:46px) — pushed right of it instead of on top of it. */
   top: 10px;
-  left: 64px;
+  left: calc(64px + env(safe-area-inset-left, 0px));
   font-size: 1.7em;
   letter-spacing: -2px;
 }
 
 .touch-device .positionboard {
   top: 10px;
-  right: 12px;
+  right: calc(12px + env(safe-area-inset-right, 0px));
 }
 
 .touch-device .positionboard-pos {
@@ -910,8 +951,8 @@ button {
 }
 
 .touch-device .speed {
-  bottom: 12px;
-  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
   font-size: 1.4em;
 }
 
@@ -1005,4 +1046,53 @@ button {
      The overlay drops out of the way on its own afterwards (`.fullscreen.clicked`
      is `pointer-events: none`), which is why the bug looked intermittent. */
   z-index: 10000;
+}
+
+/*
+ * The stand-in for the button on browsers with no Fullscreen API. Same anchor,
+ * same z-index reasoning as the button above — it has to clear the Intro
+ * overlay for exactly the same reason, and it is most useful while that
+ * overlay is still up.
+ *
+ * Height is the constraint that matters: `.attribution` above sits at
+ * `64px + safe area` precisely to clear the 44px button, and that budget is
+ * all this gets too. 11px text over two lines plus 7px of padding lands at
+ * ~44px, so the credit stays legible. Widen the copy and it will not.
+ */
+.fullscreen-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(340px, calc(100vw - 32px));
+  padding: 7px 8px 7px 12px;
+  border-radius: 12px;
+  background: rgba(8, 10, 16, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Quieter than any live HUD element on purpose: this is an aside, not
+     telemetry, and it must not read as something the player has to act on. */
+  color: #b9b7b2;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.fullscreen-hint-close {
+  flex: none;
+  /* 28px is below the 44px touch-target guideline, and deliberately so — the
+     thing this sits next to is the whole bottom edge of a driving game. A
+     comfortable dismiss target here is a comfortable *accidental* one. */
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: #b9b7b2;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
 }

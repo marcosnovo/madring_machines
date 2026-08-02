@@ -2,7 +2,34 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` is what makes the layout reach the physical edges
+         of a notched phone instead of being letterboxed inside the "safe"
+         rectangle — and, just as importantly, it is the switch that makes
+         `env(safe-area-inset-*)` report anything other than 0. styles.css
+         already budgets for those insets (touch controls, HUD, the fullscreen
+         control); without this attribute that budgeting is dead code. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Launched from the home screen, this runs with no browser chrome at
+         all, which is the only route to a genuinely full-screen game on a
+         browser whose Fullscreen API is missing (see ui/FullscreenButton.tsx).
+         `black-translucent` lets the canvas render under the status bar rather
+         than beneath an opaque strip of it; the safe-area insets above are
+         what keep the HUD out from under it. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kilómetro Cero" />
+    <!-- The vendor-neutral spelling of the same thing, for browsers that read
+         it instead of the apple- prefix. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- Matches the `body` background in styles.css so the shell around the
+         canvas is the same near-black, not a white flash on launch. -->
+    <meta name="theme-color" content="#101010" />
+    <!-- public/manifest.webmanifest. Deliberately icon-less: no app icon
+         artwork exists in this repo, and a manifest that points at icons which
+         are not there is worse than one that points at none — the platform
+         logs a fetch error and falls back anyway. iOS falls back to a snapshot
+         of the page; add an `icons` array here the day real artwork lands. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>Kilómetro Cero — 3D circuit</title>
   </head>
   <body>

@@ -36,6 +36,13 @@ export const cameraRig = {
  *
  * The field of view set here is only a starting value: Vehicle.tsx animates
  * it with speed and boost, live-tunable from the panel on `.`.
+ *
+ * So are the position and rotation of the perspective camera: the frame loop
+ * writes both every tick and snaps rather than eases on the first one. They
+ * are still kept in step with the chase pose in Vehicle.tsx (2.45 m up,
+ * 7.1 m back, tilted down by CHASE_PITCH) so that the one frame R3F may render
+ * before the loop first runs is the shot the player is about to get, not a
+ * lower one it immediately jumps away from.
  */
 export function Cameras() {
   const camera = useStore((state) => state.camera)
@@ -51,7 +58,7 @@ export function Cameras() {
 
   return (
     <>
-      <PerspectiveCamera ref={persp} frustumCulled={false} fov={62} near={0.2} far={7000} rotation={[0, Math.PI, 0]} position={[0, 2, -6]} />
+      <PerspectiveCamera ref={persp} frustumCulled={false} fov={62} near={0.2} far={7000} rotation={[0.105, Math.PI, 0]} position={[0, 2.45, -7.1]} />
       <OrthographicCamera ref={ortho} frustumCulled={false} position={[0, 100, 0]} rotation={[(-1 * Math.PI) / 2, 0, Math.PI]} zoom={15} />
     </>
   )

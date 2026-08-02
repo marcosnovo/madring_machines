@@ -1,0 +1,12 @@
+{
+  "name": "Kilómetro Cero — 3D circuit",
+  "short_name": "Kilómetro Cero",
+  "description": "A 3D lap of the Madring circuit.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "lang": "en"
+}
