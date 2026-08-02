@@ -152,7 +152,7 @@ export class RaceSession {
     cars.length = 0
     for (const entry of this.entries) cars.push(entry.car)
 
-    let playerEvents: StepEvents = { crossedSF: 0, wallHit: 0 }
+    let playerEvents: StepEvents = { crossedSF: 0, wallHit: 0, carHit: 0 }
     for (const entry of this.entries) {
       let input: CarInput
       if (entry.isPlayer) input = live ? playerInput : HOLD_INPUT
@@ -164,7 +164,11 @@ export class RaceSession {
     }
 
     // ---- car-vs-car contact ----------------------------------------------
+    // Contacts are resolved for the whole field at once, i.e. after every car
+    // has stepped, so the player's own contact can only be read back out
+    // here — `step()` had already returned by the time it happened.
     resolveCarContacts(cars, this.bodies, tuning.mass)
+    playerEvents.carHit = this.playerEntry.car.contactHit
 
     // ---- standings, a few times a second ---------------------------------
     this.standingsT -= dt

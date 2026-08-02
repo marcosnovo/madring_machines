@@ -1096,3 +1096,85 @@ button {
   line-height: 1;
   cursor: pointer;
 }
+
+/* --------------- BLIND-SPOT MARKERS (ui/Proximity) --------------- */
+
+/*
+ * A rival within ~34 m that the chase camera cannot show. Measured against the
+ * real AI, that is 37-58 % of the time a car is that close (see
+ * ui/Proximity.tsx), which is why the owner reported opponents "appearing out
+ * of nowhere from the right".
+ *
+ * Vertically centred and hugging the frame edge, because that is the direction
+ * the information is about — a corner badge would have to be read, an edge
+ * chevron is peripheral vision. Inset by the safe area so the notch and the
+ * home indicator on an iPhone in landscape do not clip it.
+ */
+.proximity {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.proximity-marker {
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  /* A solid triangle built from borders: no image, no SVG, no extra request. */
+  border-top: 15px solid transparent;
+  border-bottom: 15px solid transparent;
+  transition: opacity 0.12s linear;
+}
+
+.proximity-left {
+  left: calc(6px + env(safe-area-inset-left, 0px));
+  transform: translateY(-50%);
+  border-right: 17px solid #f5b70f;
+}
+
+.proximity-right {
+  right: calc(6px + env(safe-area-inset-right, 0px));
+  transform: translateY(-50%);
+  border-left: 17px solid #f5b70f;
+}
+
+/* Under ~18 m, when contact is the next thing that happens rather than a
+   possibility: red, and moving, so it is caught by peripheral vision at a
+   moment when the eyes are on the corner. */
+.proximity-marker.close {
+  animation: proximity-pulse 0.34s ease-in-out infinite alternate;
+}
+
+.proximity-left.close {
+  border-right-color: #ff3b30;
+}
+
+.proximity-right.close {
+  border-left-color: #ff3b30;
+}
+
+@keyframes proximity-pulse {
+  from {
+    transform: translateY(-50%) scale(1);
+  }
+  to {
+    transform: translateY(-50%) scale(1.35);
+  }
+}
+
+/* The touch HUD is already crowded and the frame is only ~390px tall; a
+   full-size chevron there eats road. Same information, two thirds the size. */
+.touch-device .proximity-marker {
+  border-top-width: 11px;
+  border-bottom-width: 11px;
+}
+
+.touch-device .proximity-left {
+  border-right-width: 12px;
+}
+
+.touch-device .proximity-right {
+  border-left-width: 12px;
+}

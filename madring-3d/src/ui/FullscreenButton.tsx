@@ -100,10 +100,19 @@ export function FullscreenButton(): JSX.Element | null {
   }, [hint, ready])
 
   const toggle = useCallback(() => {
+    // Both calls reject rather than throw when the browser declines — most
+    // often because the click was not treated as a user gesture, or because a
+    // permissions policy forbids it in an embedded frame. There is nothing
+    // useful to do about either: the button simply does not take effect, and
+    // the state stays honest because `full` is driven by `fullscreenchange`
+    // rather than by assuming this succeeded. Swallowed deliberately, not
+    // overlooked — an unhandled rejection here would be console noise on every
+    // refused tap.
+    const ignoreRefusal = (): void => undefined
     if (isFullscreen()) {
-      document.exitFullscreen().catch(() => {})
+      document.exitFullscreen().catch(ignoreRefusal)
     } else {
-      document.documentElement.requestFullscreen().catch(() => {})
+      document.documentElement.requestFullscreen().catch(ignoreRefusal)
     }
   }, [])
 

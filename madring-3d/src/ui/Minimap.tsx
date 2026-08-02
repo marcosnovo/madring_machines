@@ -3,10 +3,18 @@
  * an off-screen buffer once, then draws it as a masked sprite with a cursor for
  * the car.
  *
- * Changed from upstream: the multiplayer opponent cursors are gone, the
- * orthographic frustum is square so a 1.1 x 1.8 km circuit is not squashed, and
- * near/far are derived from the level bounds — the hard-coded `near={20}
- * far={500}` clipped the generated track away entirely.
+ * Changed from upstream: the orthographic frustum is square so a 1.1 x 1.8 km
+ * circuit is not squashed, and near/far are derived from the level bounds —
+ * the hard-coded `near={20} far={500}` clipped the generated track away
+ * entirely.
+ *
+ * Upstream's multiplayer opponent cursors were dropped when the multiplayer
+ * was; they are back, driven off the local race session, because a map of a
+ * race with only your own car on it tells you nothing about the race. This
+ * does not fix the close-quarters blind spot (a 40 m gap is ~2.5 px on the
+ * 118 px touch map — that is what ui/Proximity is for), but it is what answers
+ * "where did that car come from" at the distances where a wall or a catch
+ * fence hides a rival for a few seconds.
  */
 import { OrthographicCamera as OrthographicCameraComponent, useFBO, useTexture } from '@react-three/drei'
 import { createPortal, useFrame, useThree } from '@react-three/fiber'
@@ -16,6 +24,7 @@ import { Box3, Matrix4, Scene, Vector2, Vector3 } from 'three'
 import type { OrthographicCamera, WebGLRenderTarget, Sprite } from 'three'
 
 import { isTouchCapable } from '../controls/touchCapable'
+import { getRace } from '../race/RaceSession'
 import { useStore, levelLayer } from '../store'
 
 const m = new Matrix4()
@@ -86,6 +95,10 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
   const player = useRef<Sprite>(null)
   const miniMap = useRef<Sprite>(null)
   const miniMapCamera = useRef<OrthographicCamera>(null)
+  // The AI field, resolved once: the race session is module-level and its
+  // entries never change after the grid is formed.
+  const rivals = useMemo(() => getRace().entries.filter((entry) => !entry.isPlayer), [])
+  const rivalSprites = useRef<(Sprite | null)[]>([])
   const [virtualScene] = useState(() => new Scene())
   const mask = useTexture('textures/mask.svg')
   const cursorTexture = useTexture('textures/cursor.svg')
@@ -128,6 +141,15 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
       player.current.material.rotation = Math.PI / 2 - spriteRotation.angle()
     }
 
+    // Rivals, straight off the analytic controllers — no scene lookup, no
+    // world matrices, just the two numbers the car model already lives in.
+    for (let i = 0; i < rivals.length; i++) {
+      const sprite = rivalSprites.current[i]
+      if (!sprite) continue
+      const car = rivals[i].car
+      sprite.position.set(screenPosition.x + ((car.x - levelCenter.x) / span) * mapSize, screenPosition.y - ((car.z - levelCenter.z) / span) * mapSize, 0)
+    }
+
     gl.render(virtualScene, miniMapCamera.current)
   }, 1)
 
@@ -151,7 +173,25 @@ export function Minimap({ size }: { size?: number }): JSX.Element {
           <sprite ref={miniMap} renderOrder={1} position={screenPosition} scale={[mapSize, mapSize, 1]}>
             <spriteMaterial map={buffer.texture} alphaMap={mask} depthTest={false} />
           </sprite>
-          <sprite ref={player} renderOrder={2} position={screenPosition} scale={[mapSize / 20, mapSize / 20, 1]}>
+          {/* Rivals under the player cursor (renderOrder 2 < 3): when the
+              field is nose-to-tail the player must still be able to find
+              itself. Untextured square pips in each driver's own body colour,
+              at 60 % of the cursor — a solid block reads at the ~3.6 px these
+              get on the 118 px touch map, where an outlined or masked shape
+              would just be grey mush, and it cannot be confused with the
+              player's arrow. */}
+          {rivals.map((entry, i) => (
+            <sprite
+              key={entry.spec.name}
+              ref={(s) => (rivalSprites.current[i] = s)}
+              renderOrder={2}
+              position={screenPosition}
+              scale={[mapSize / 33, mapSize / 33, 1]}
+            >
+              <spriteMaterial color={entry.spec.color} depthTest={false} toneMapped={false} />
+            </sprite>
+          ))}
+          <sprite ref={player} renderOrder={3} position={screenPosition} scale={[mapSize / 20, mapSize / 20, 1]}>
             <spriteMaterial color="white" alphaMap={cursorTexture} depthTest={false} />
           </sprite>
         </>,
