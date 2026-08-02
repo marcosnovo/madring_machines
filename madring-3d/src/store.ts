@@ -225,8 +225,28 @@ interface Mutation {
   sliding: boolean
   speed: number
   velocity: [number, number, number]
-  /** One-tick wall impact intensity 0..1, from the analytic wall response. */
-  wallHit: number
+  /**
+   * Impacts are published as a COUNTER, not a flag.
+   *
+   * `wallHit` used to be a one-tick number that whoever noticed it first reset
+   * to 0. That worked while the crash audio was the only consumer, but it
+   * silently breaks the moment there are two (audio + sparks): the first one
+   * to run each frame ate the event, and with sound off nobody reset it at
+   * all, so the flag stayed hot. A monotonically increasing sequence has
+   * neither problem — every consumer latches its own last-seen value and can
+   * miss nothing and consume nothing.
+   *
+   * The physics runs at a fixed 60 Hz inside a render frame that may be far
+   * slower, so Vehicle.tsx folds every substep's impact into ONE bump per
+   * frame carrying the hardest of them.
+   */
+  impactSeq: number
+  /** Intensity 0..1 of the impact that last bumped `impactSeq`. */
+  impact: number
+  /** True when that impact was car-vs-car rather than car-vs-wall. */
+  impactCar: boolean
+  /** World point of that impact — where the sparks come from. */
+  impactPoint: [number, number, number]
 }
 
 export const mutation: Mutation = {
@@ -236,7 +256,10 @@ export const mutation: Mutation = {
   sliding: false,
   speed: 0,
   velocity: [0, 0, 0],
-  wallHit: 0,
+  impactSeq: 0,
+  impact: 0,
+  impactCar: false,
+  impactPoint: [0, 0, 0],
 }
 
 // Make the store shallow compare by default

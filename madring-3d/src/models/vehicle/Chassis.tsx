@@ -152,6 +152,8 @@ export function prepare(scene: Group): CarParts {
 
 export const Chassis = forwardRef<Group, PropsWithChildren<unknown>>(({ children }, ref) => {
   const crashAudio = useRef<PositionalAudioImpl>(null!)
+  // Last impact this component has already played (see store's `impactSeq`).
+  const lastImpact = useRef(0)
   const wheels = useStore((s) => s.wheels)
   // The glb is not Draco-compressed, but drei's default is to fetch a decoder
   // from a Google CDN "just in case" — point it at the vendored one instead:
@@ -188,11 +190,22 @@ export const Chassis = forwardRef<Group, PropsWithChildren<unknown>>(({ children
 
     if (parts.bodyMaterial) parts.bodyMaterial.color.lerp(c.set(color), 0.1)
 
-    // Crash audio from the analytic wall response.
-    if (mutation.wallHit > 0 && sound && crashAudio.current) {
-      crashAudio.current.setVolume(Math.min(1, 0.3 + mutation.wallHit))
-      if (!crashAudio.current.isPlaying) crashAudio.current.play()
-      mutation.wallHit = 0
+    // Crash audio, now for BOTH the analytic wall response and car-vs-car
+    // contact — being punted by a rival used to be completely silent, which
+    // is most of why contact did not register as contact. A car hit is mixed
+    // lower than a wall of the same severity: one is bodywork on bodywork,
+    // the other is bodywork on concrete.
+    if (mutation.impactSeq !== lastImpact.current) {
+      lastImpact.current = mutation.impactSeq
+      if (sound && crashAudio.current) {
+        const gain = mutation.impactCar ? 0.62 : 1
+        crashAudio.current.setVolume(Math.min(1, (0.3 + mutation.impact) * gain))
+        // A retrigger has to restart the sample, or a second hit inside the
+        // ~1 s crash tail is swallowed and a scrappy sequence of contacts
+        // sounds like one.
+        if (crashAudio.current.isPlaying) crashAudio.current.stop()
+        crashAudio.current.play()
+      }
     }
   })
 

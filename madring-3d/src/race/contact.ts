@@ -15,7 +15,10 @@
  * and re-targeted at this project's CarController (the reference's phys.pos /
  * projectWallConstraint become x/z / resolveWallCollision); the damage,
  * scrape-audio, blue-flag and telemetry bookkeeping is removed — this port
- * keeps only what separates cars and exchanges momentum.
+ * keeps only what separates cars and exchanges momentum. Added on top: the
+ * feedback channel (contact intensity, contact point, camera kick) and the
+ * scrub below, so a hit is something the player hears, sees and pays for
+ * rather than a silent nudge.
  */
 import type { CarController } from '../vehicle/CarController'
 import { CAR_HALF_LENGTH, CAR_HALF_WIDTH } from '../vehicle/CarController'
@@ -23,6 +26,48 @@ import { bodyToWorldVelocity, setBodyVelocityFromWorld } from '../vehicle/dynami
 
 const BROADPHASE_SQ = Math.pow(2 * Math.hypot(CAR_HALF_LENGTH, CAR_HALF_WIDTH), 2)
 const CONTACT_SLOP = 0.002
+
+/**
+ * Closing speed below which a touch is not an impact, m/s.
+ *
+ * Cars racing nose-to-tail rub continuously at a few tenths of a metre per
+ * second — the positional passes above shuffle them apart every tick. Every
+ * one of those used to raise a (tiny) camera kick; with the sharper response
+ * curve below they would raise an audible one, so the deadband moves out from
+ * the impulse's 0.5 to a speed no amount of shuffling produces.
+ */
+const HIT_FLOOR = 1.2
+
+/**
+ * Closing speed that saturates the feedback, m/s. 13 m/s ≈ 47 km/h of closing
+ * speed, which on this circuit is a genuine misjudged braking point into the
+ * back of someone, not a side-by-side rub.
+ */
+const HIT_FULL = 13
+
+/**
+ * How much speed a square hit scrubs off, at full intensity.
+ *
+ * The impulse already deletes the *closing* component, which for a shallow
+ * side-swipe is almost none of the car's speed — so before this, T-boning a
+ * rival and brushing one cost the same lap time: nothing. A hit has to be
+ * paid for or it is not a hit. 0.22 at saturation is roughly a lost corner,
+ * and the sqrt shaping below keeps a light rub under 3 %.
+ */
+const HIT_SCRUB = 0.22
+
+/**
+ * Perceived severity of a contact, 0..1, from its closing speed.
+ *
+ * The linear (closing - 0.5) / 18 this replaces put a 5 m/s bang — the sort
+ * that spins a car — at 0.25, then multiplied it by 0.75 for the camera kick:
+ * about a fifth of a degree of shake, which is why contact read as nothing at
+ * all. A sqrt keeps light rubs light (2 m/s → 0.25) while getting real hits
+ * up where they can be felt (5 m/s → 0.55, 10 m/s → 0.85).
+ */
+function hitIntensity(closing: number): number {
+  return Math.min(1, Math.sqrt(Math.max(0, closing - HIT_FLOOR) / (HIT_FULL - HIT_FLOOR)))
+}
 
 interface Body {
   car: CarController
@@ -96,6 +141,11 @@ export function orientedCarContact(a: Body, b: Body): Contact | null {
  * pair reads the same pre-solve velocity snapshot; the accumulated deltas are
  * applied once per car, which removes entry-order bias in pile-ups. After any
  * correction the car is re-clamped against the walls.
+ *
+ * Each touching car is left with `contactHit` (0..1 severity, one tick),
+ * `impactX/impactZ` (where the sparks come from) and a raised `impactKick`
+ * (camera shake), and pays a longitudinal speed scrub proportional to that
+ * severity.
  */
 export function resolveCarContacts(cars: CarController[], bodies: Body[], mass: number): void {
   const n = cars.length
@@ -132,6 +182,7 @@ export function resolveCarContacts(cars: CarController[], bodies: Body[], mass: 
   }
 
   // Impulses from the pre-solve snapshot.
+  let hardest = 0
   const deltaVx = new Array<number>(n).fill(0)
   const deltaVz = new Array<number>(n).fill(0)
   for (let i = 0; i < n; i++) syncBody(bodies[i], cars[i], mass)
@@ -155,13 +206,42 @@ export function resolveCarContacts(cars: CarController[], bodies: Body[], mass: 
       deltaVz[i] += iz * bodies[i].invMass
       deltaVx[j] -= ix * bodies[j].invMass
       deltaVz[j] -= iz * bodies[j].invMass
-      const intensity = Math.max(0, Math.min(1, (closing - 0.5) / 18))
-      cars[i].impactKick = Math.max(cars[i].impactKick, intensity * 0.75)
-      cars[j].impactKick = Math.max(cars[j].impactKick, intensity * 0.75)
+
+      // ---- feedback ------------------------------------------------------
+      const intensity = hitIntensity(closing)
+      if (intensity <= 0) continue
+      // Where the sparks come from. The midpoint of two centres that are, by
+      // definition of the contact, just touching along the normal lands on
+      // the touching bodywork — near enough for a spark shower, and it needs
+      // no witness points the SAT above does not produce.
+      const px = (bodies[i].x + bodies[j].x) * 0.5
+      const pz = (bodies[i].z + bodies[j].z) * 0.5
+      const a = cars[i]
+      const bCar = cars[j]
+      a.impactKick = Math.max(a.impactKick, intensity * 0.75)
+      a.contactHit = Math.max(a.contactHit, intensity)
+      a.impactX = px
+      a.impactZ = pz
+      bCar.impactKick = Math.max(bCar.impactKick, intensity * 0.75)
+      bCar.contactHit = Math.max(bCar.contactHit, intensity)
+      bCar.impactX = px
+      bCar.impactZ = pz
+      hardest = Math.max(hardest, intensity)
     }
   }
   for (let i = 0; i < n; i++) {
     if (deltaVx[i] === 0 && deltaVz[i] === 0) continue
     setBodyVelocityFromWorld(cars[i].vehicle, cars[i].heading, baseVx[i] + deltaVx[i], baseVz[i] + deltaVz[i])
+  }
+  // The scrub is applied after the impulses, on the resulting body velocity,
+  // so it costs speed in the direction the car is actually travelling rather
+  // than fighting the momentum exchange. Longitudinal only: killing lateral
+  // velocity as well would make a side-swipe *stabilise* the car, which is
+  // the opposite of what a hit should feel like.
+  if (hardest > 0) {
+    for (const car of cars) {
+      if (car.contactHit <= 0) continue
+      car.vehicle.velocityLong *= 1 - HIT_SCRUB * car.contactHit
+    }
   }
 }

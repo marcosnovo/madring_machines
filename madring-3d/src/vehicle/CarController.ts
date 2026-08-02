@@ -112,6 +112,12 @@ export interface StepEvents {
   crossedSF: number
   /** One-tick wall impact intensity 0..1, 0 when none. */
   wallHit: number
+  /**
+   * One-tick car-vs-car impact intensity 0..1, 0 when none. Filled in by the
+   * race session AFTER the step, because contacts are resolved once for the
+   * whole field (src/race/contact.ts) rather than inside any one car's step.
+   */
+  carHit: number
 }
 
 const ATT_MAX = 0.045
@@ -142,7 +148,18 @@ export class CarController {
   wallHit = 0
   wallContact = false
   wallScrape = 0
+  /** One-tick car-vs-car impact 0..1, written by ../race/contact.ts. */
+  contactHit = 0
   impactKick = 0
+  /**
+   * Planar world point of the most recent contact — the wall face under a
+   * scrape, or the midpoint between two touching cars. The sparks come out of
+   * here, so it has to be the *contact*, not the car's centre: a shower coming
+   * off the middle of the chassis reads as an explosion, one coming off the
+   * left sidepod reads as a wall you just clipped.
+   */
+  impactX = 0
+  impactZ = 0
   /** Visual body attitude, radians / metres. Never fed back into dynamics. */
   pitch = 0
   roll = 0
@@ -200,6 +217,7 @@ export class CarController {
     this.wallContact = false
     this.wallScrape = 0
     this.wallHit = 0
+    this.contactHit = 0
     this.impactKick = 0
     this.pitch = 0
     this.roll = 0
@@ -216,7 +234,7 @@ export class CarController {
     const t = tuning
     const c = this.track
     const m = t.mass
-    const events: StepEvents = { crossedSF: 0, wallHit: 0 }
+    const events: StepEvents = { crossedSF: 0, wallHit: 0, carHit: 0 }
 
     // ---- input shaping ----------------------------------------------------
     if (input.analog) {
@@ -231,6 +249,11 @@ export class CarController {
     this.slip = false
     this.wallHit = 0
     this.wallScrape = 0
+    // Cleared here rather than in contact.ts: the race session resolves
+    // contacts AFTER every car has stepped, so "cleared at the top of the
+    // step, read at the bottom of the tick" is the only ordering in which a
+    // contact survives exactly one tick and is seen by exactly one reader.
+    this.contactHit = 0
     this.impactKick *= Math.max(0, 1 - dt * 8)
 
     const sample = c.samples[this.sampleIdx]
@@ -400,6 +423,11 @@ export class CarController {
     this.x = s.x + s.tx * along + s.nx * side * lim
     this.z = s.z + s.tz * along + s.nz * side * lim
     this.lat = lateralAt(c, this.x, this.z, this.sampleIdx)
+    // The wall face itself: the clamp holds the car's *centre* `support`
+    // metres inside it, so that is exactly how far out the bodywork is
+    // touching. Sparks are emitted from here.
+    this.impactX = this.x + s.nx * side * support
+    this.impactZ = this.z + s.nz * side * support
 
     const oldSign = this.v < 0 ? -1 : 1
     bodyToWorldVelocity(this.vehicle, this.heading, this.worldVelocity)

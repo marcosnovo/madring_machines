@@ -19,7 +19,7 @@ import type { PropsWithChildren } from 'react'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 
-import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Skid } from '../../effects'
+import { AccelerateAudio, Boost, BoostAudio, BrakeAudio, Dust, EngineAudio, HonkAudio, Impact, Skid } from '../../effects'
 import { cameraRig } from '../../effects/Cameras'
 import { gamepad } from '../../controls/Gamepad'
 import { touchInput } from '../../controls/Touch'
@@ -127,13 +127,23 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       boost: controls.boost || gamepad.boost || touchInput.boost,
     }
     S.accumulator += delta
+    // Impacts are folded across the substeps of this render frame: on a phone
+    // one frame can be four or five physics ticks, and a crash that is heard
+    // and sparked once per tick is a machine-gun, not a crash. Hardest wins,
+    // and the whole frame publishes exactly one event (see store's `impactSeq`).
+    let frameImpact = 0
+    let frameImpactCar = false
     while (S.accumulator >= FIXED_DT) {
       S.accumulator -= FIXED_DT
       // The race session steps the whole field — the player with this input
       // (held on the grid until lights-out), the AI cars with theirs — and
       // returns the player's events for the lap timing below.
       const events = getRace().stepAll(FIXED_DT, input, getState().ready)
-      if (events.wallHit > 0) mutation.wallHit = Math.max(mutation.wallHit, events.wallHit)
+      const hit = Math.max(events.wallHit, events.carHit)
+      if (hit > frameImpact) {
+        frameImpact = hit
+        frameImpactCar = events.carHit >= events.wallHit
+      }
       if (events.crossedSF > 0) {
         const now = Date.now()
         const { start } = getState()
@@ -146,6 +156,19 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         S.passed[0] = S.passed[1] = false
         setState({ start: now, _start: now })
       }
+    }
+
+    // ---- publish the frame's impact --------------------------------------
+    // The world point is the contact the controller recorded (wall face, or
+    // the midpoint of two cars), lifted to roughly bodywork height off the
+    // measured surface — sparks fly from the panel, not from the tarmac.
+    if (frameImpact > 0) {
+      mutation.impact = frameImpact
+      mutation.impactCar = frameImpactCar
+      mutation.impactPoint[0] = player.impactX
+      mutation.impactPoint[1] = surfaceY(track, player.impactX, player.impactZ, player.sampleIdx) + 0.35
+      mutation.impactPoint[2] = player.impactZ
+      mutation.impactSeq++
     }
 
     // ---- sector checkpoints ----------------------------------------------
@@ -293,6 +316,9 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
       </Chassis>
       <Dust />
       <Skid />
+      {/* Outside <Chassis>: sparks are world-space, at the point of contact,
+          and must not ride along with the car that made them. */}
+      <Impact />
     </group>
   )
 }
