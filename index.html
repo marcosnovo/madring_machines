@@ -2,12 +2,96 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!--
+      viewport-fit=cover so the page owns the whole screen on a notched iPhone
+      rather than being letterboxed into the safe rectangle by the browser.
+      The unsafe strips are then given back explicitly, in CSS, via
+      env(safe-area-inset-*) on #game-container — see below. Doing it that way
+      round means WE decide where the playfield edge is, instead of iOS
+      deciding it for us and the game never knowing.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!--
+      "Add to Home Screen" is the ONLY route to a genuinely fullscreen game on
+      an iPhone: iOS WebKit — which every browser on the device is required to
+      use, so Chrome for iOS behaves exactly as Safari does — ships no
+      Fullscreen API for elements at all, which is why the game's own
+      fullscreen button (HudOverlayScene) does not even draw itself there.
+      These three tags are what make that home-screen launch open without
+      browser chrome. Deliberately no web app manifest: a manifest whose icon
+      URLs 404 is worse than no manifest, and there is no icon art in the repo.
+    -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <!--
+      black-translucent, so the standalone web app gets the full screen and the
+      status bar floats over it; the safe-area padding below is what keeps the
+      canvas out from under it. (With "black" iOS reserves the strip itself and
+      the insets come back as 0 — which also works, but then the game is
+      permanently 47 pt shorter even on devices with no notch.)
+    -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kilómetro Cero">
+    <!-- Matches the body background, so no browser UI seams against the game. -->
+    <meta name="theme-color" content="#000000">
     <title>Kilómetro Cero</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; overflow: hidden; }
-        #game-container { width: 100vw; height: 100vh; }
+        /*
+         * 100dvh, not 100vh.
+         *
+         * On iOS Safari `vh` is defined against the LARGE viewport — the size
+         * the page would have if the address bar and toolbar were retracted —
+         * so `height: 100vh` is taller than the screen actually shows whenever
+         * that chrome is on display, which in a non-scrolling page is always.
+         * Phaser's Scale.FIT + CENTER_BOTH then fits the canvas into that
+         * too-tall box and centres it in it, so the canvas hangs off the
+         * bottom of the visible area and a strip of the black body colour
+         * shows at the top: the black bars in the bug report. It also pushed
+         * the on-screen controls down behind Safari's own toolbar.
+         *
+         * `dvh` is the dynamic viewport — exactly what window.innerHeight
+         * reports, which is also what GW/GH are picked from in game.js, so the
+         * design box and the element it is fitted into finally agree. The
+         * plain-vh line above it is the fallback for browsers without dvh
+         * (Safari < 15.4), where the two units mean the same thing anyway.
+         *
+         * Desktop is unaffected: with no retractable chrome, 1dvh === 1vh.
+         *
+         * The env() insets are the other half of viewport-fit=cover: the
+         * viewport now includes the notch and the home indicator, so the
+         * playfield has to hand those strips back or the HUD's top bar ends up
+         * under the clock and the GAS button under the home indicator. They
+         * resolve to 0 everywhere they do not apply — every desktop browser,
+         * and an iPhone in a normal browser tab, where the browser's own chrome
+         * is already covering those strips — so this costs nothing there and
+         * only bites in standalone "Add to Home Screen" mode.
+         *
+         * The insets are applied as PADDING ON THE BODY, and the container is
+         * then simply 100% of what is left. Two traps avoided by doing it that
+         * way round: padding on the container itself would have been invisible
+         * to Phaser (its ScaleManager measures the parent with
+         * getBoundingClientRect(), which includes padding, so it would have
+         * drawn under the notch regardless), and a top MARGIN on the container
+         * would have collapsed straight out through the body and moved the
+         * wrong box. With `* { box-sizing: border-box }` above, the child's
+         * height:100% resolves against the body's content box, i.e. the safe
+         * rectangle — and that same element's rect is what game.js measures to
+         * pick GW/GH (see pickDesignSize), so the design box, the parent box
+         * and the canvas all agree and FIT has nothing left to letterbox.
+         *
+         * touch-action: none stops iOS treating a fast double tap on the GAS
+         * button as a double-tap-to-zoom.
+         */
+        body {
+            background: #000;
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                     env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        #game-container { width: 100%; height: 100%; touch-action: none; }
     </style>
     <script>
         // Handle screen orientation lock errors gracefully
