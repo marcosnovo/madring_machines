@@ -57,6 +57,33 @@ const HIT_FULL = 13
 const HIT_SCRUB = 0.22
 
 /**
+ * Seconds a car is immune to being CHARGED for another contact, after one.
+ *
+ * A wall already works this way and always has: resolveWallCollision only
+ * raises `wallHit`/`impactKick` on `newIncident`, so leaning on a barrier
+ * costs `wallScrape` and nothing else. Car-vs-car had no equivalent — every
+ * tick whose closing speed cleared HIT_FLOOR was a fresh, fully-priced hit —
+ * and the scrub above is written as if it were charged once ("0.22 at
+ * saturation is roughly a lost corner").
+ *
+ * It is not charged once. Measured headless, driving into the back of the
+ * field on the brakes for turn one: ten charges in 1.43 s, severities 0.16 to
+ * 0.58, which compound to 40.9 % of the entry speed — 201 km/h down to 82 from
+ * the scrub alone, plus ten camera kicks, ten spark showers and ten crash
+ * samples. Ten lost corners for one scrappy shunt is not "contact costs
+ * something", it is being permanently crashed, which is exactly what the
+ * owner reported.
+ *
+ * 0.35 s is the interval a car needs to rebuild HIT_FLOOR's 1.2 m/s of closing
+ * speed under power (the impulse deletes the closing component, and the field
+ * accelerates at ~3.5 m/s² at the speeds where this happens), so anything
+ * charged twice really did have to drive into the car in front twice. The
+ * separation passes and the impulse are unaffected: they are physics and run
+ * every tick regardless — this gates only what the player is told about.
+ */
+const CONTACT_REFRACTORY = 0.35
+
+/**
  * Perceived severity of a contact, 0..1, from its closing speed.
  *
  * The linear (closing - 0.5) / 18 this replaces put a 5 m/s bang — the sort
@@ -216,17 +243,16 @@ export function resolveCarContacts(cars: CarController[], bodies: Body[], mass: 
       // no witness points the SAT above does not produce.
       const px = (bodies[i].x + bodies[j].x) * 0.5
       const pz = (bodies[i].z + bodies[j].z) * 0.5
-      const a = cars[i]
-      const bCar = cars[j]
-      a.impactKick = Math.max(a.impactKick, intensity * 0.75)
-      a.contactHit = Math.max(a.contactHit, intensity)
-      a.impactX = px
-      a.impactZ = pz
-      bCar.impactKick = Math.max(bCar.impactKick, intensity * 0.75)
-      bCar.contactHit = Math.max(bCar.contactHit, intensity)
-      bCar.impactX = px
-      bCar.impactZ = pz
-      hardest = Math.max(hardest, intensity)
+      // Each car is charged on its own clock: being shunted by a car that is
+      // itself mid-refractory is still news to the car being shunted.
+      for (const car of [cars[i], cars[j]]) {
+        if (car.contactCool > 0) continue
+        car.impactKick = Math.max(car.impactKick, intensity * 0.75)
+        car.contactHit = Math.max(car.contactHit, intensity)
+        car.impactX = px
+        car.impactZ = pz
+        hardest = Math.max(hardest, intensity)
+      }
     }
   }
   for (let i = 0; i < n; i++) {
@@ -242,6 +268,10 @@ export function resolveCarContacts(cars: CarController[], bodies: Body[], mass: 
     for (const car of cars) {
       if (car.contactHit <= 0) continue
       car.vehicle.velocityLong *= 1 - HIT_SCRUB * car.contactHit
+      // Armed here rather than where the severity is written, so the whole
+      // charge — severity, kick, spark point and this scrub — is one event
+      // that a car pays for exactly once. See CONTACT_REFRACTORY.
+      car.contactCool = CONTACT_REFRACTORY
     }
   }
 }
