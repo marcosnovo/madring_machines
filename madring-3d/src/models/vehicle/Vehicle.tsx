@@ -283,6 +283,20 @@ export function Vehicle({ children }: PropsWithChildren<unknown>) {
         // write for the same reason: one `rotation.set` per frame, carrying
         // every axis, is the only shape that cannot leave a stale component
         // behind when the mode changes under it.
+        //
+        // These are the only two shake channels, and they are ROTATIONS of the
+        // lens, not displacements of it — so how far back the camera sits
+        // cannot change how much the frame moves. Apparent motion is
+        // angle / fov × frame height, and raising the chase camera from
+        // 1.15 m / 5.20 m to 2.45 m / 7.10 m touched neither term. Measured
+        // headless over a 60 s flat-out lap (up to 310 km/h): `swayValue`
+        // peaks at 5.92, i.e. 5.92/1000 rad = 0.34° of camera rotation at
+        // 4.8 Hz — under two pixels on a 400 px phone frame at this fov. The
+        // speed shake is not what a player feels; `kick` is. A saturated
+        // impact puts 40/1000 rad = 2.29° in, seven times the speed shake,
+        // which is the point of it and why it must only ever be raised by a
+        // real contact (see race/contact.ts's HIT_FLOOR and the grid spacing
+        // note in race/RaceSession.ts).
         swaySpeed = isBoosting ? 60 : 30
         swayTarget = (isBoosting ? speedFactor * 8 : speedFactor * 3) + t.shake * speedFactor * speedFactor * 4
         S.swayValue = isBoosting ? (speedFactor + 0.25) * 30 : MathUtils.lerp(S.swayValue, swayTarget, delta * 20)

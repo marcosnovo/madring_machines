@@ -150,6 +150,12 @@ export class CarController {
   wallScrape = 0
   /** One-tick car-vs-car impact 0..1, written by ../race/contact.ts. */
   contactHit = 0
+  /**
+   * Seconds left before another car-vs-car contact may be CHARGED (severity,
+   * kick, sparks, scrub). Counted down here, set by ../race/contact.ts; see
+   * its CONTACT_REFRACTORY for why one shunt is one charge.
+   */
+  contactCool = 0
   impactKick = 0
   /**
    * Planar world point of the most recent contact — the wall face under a
@@ -218,6 +224,7 @@ export class CarController {
     this.wallScrape = 0
     this.wallHit = 0
     this.contactHit = 0
+    this.contactCool = 0
     this.impactKick = 0
     this.pitch = 0
     this.roll = 0
@@ -254,6 +261,7 @@ export class CarController {
     // step, read at the bottom of the tick" is the only ordering in which a
     // contact survives exactly one tick and is seen by exactly one reader.
     this.contactHit = 0
+    this.contactCool = Math.max(0, this.contactCool - dt)
     this.impactKick *= Math.max(0, 1 - dt * 8)
 
     const sample = c.samples[this.sampleIdx]
